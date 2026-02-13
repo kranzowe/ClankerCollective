@@ -10,3 +10,6 @@
 [submodule "src/Interfaces"]
 	path = src/Interfaces
 	url = https://github.com/kranzowe/Interfaces.git
+[submodule "src/ROBO_rover"]
+	path = src/ROBO_rover
+	url = https://github.com/spyalexs/ROBO_rover
