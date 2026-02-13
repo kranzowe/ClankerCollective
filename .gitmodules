@@ -1,12 +1,12 @@
-[submodule "subsystems/Autonomy"]
-	path = subsystems/Autonomy
+[submodule "src/Autonomy"]
+	path = src/Autonomy
 	url = https://github.com/kranzowe/Autonomy.git
-[submodule "subsystems/Estimation"]
-	path = subsystems/Estimation
+[submodule "src/Estimation"]
+	path = src/Estimation
 	url = https://github.com/kranzowe/Estimation.git
-[submodule "subsystems/Controls"]
-	path = subsystems/Controls
+[submodule "src/Controls"]
+	path = src/Controls
 	url = https://github.com/kranzowe/Controls.git
-[submodule "subsystems/Interfaces"]
-	path = subsystems/Interfaces
+[submodule "src/Interfaces"]
+	path = src/Interfaces
 	url = https://github.com/kranzowe/Interfaces.git
