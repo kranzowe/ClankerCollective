@@ -10,7 +10,8 @@ ClankerCollective/
 ├── subsystems/
 │   ├── Autonomy/    — Autonomy subsystem
 │   ├── Estimation/  — Estimation subsystem
-│   └── Controls/    — Controls subsystem
+│   ├── Controls/    — Controls subsystem
+│   └── Interfaces/  — Custom message/service type definitions
 └── ...
 ```
 

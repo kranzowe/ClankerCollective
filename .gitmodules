@@ -7,3 +7,6 @@
 [submodule "subsystems/Controls"]
 	path = subsystems/Controls
 	url = https://github.com/kranzowe/Controls.git
+[submodule "subsystems/Interfaces"]
+	path = subsystems/Interfaces
+	url = https://github.com/kranzowe/Interfaces.git
