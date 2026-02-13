@@ -1,0 +1,9 @@
+[submodule "subsystems/Autonomy"]
+	path = subsystems/Autonomy
+	url = https://github.com/kranzowe/Autonomy.git
+[submodule "subsystems/Estimation"]
+	path = subsystems/Estimation
+	url = https://github.com/kranzowe/Estimation.git
+[submodule "subsystems/Controls"]
+	path = subsystems/Controls
+	url = https://github.com/kranzowe/Controls.git
