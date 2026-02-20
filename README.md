@@ -36,12 +36,22 @@ git submodule update --remote --merge
 
 # Running Sensor Nodes
 Lidar
+
 `ros2 launch rplidar_ros view_rplidar_a1_launch.py`
 
+`ros2 topic echo /scan`
+
 IMU
+
 `ros2 run robo_rover robo_node`
+
+`ros2 topic echo /imu/accel`
 
 Camera
 
 # Teleoperation
+
+`ros2 run robo_rover robo_node`
+
+`ros2 run clanker_hardware wasd.py`
 
