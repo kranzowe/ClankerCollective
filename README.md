@@ -43,7 +43,7 @@ Lidar
 
 IMU
 
-`ros2 run robo_rover robo_node`
+`ros2 run robo_rover rover_node`
 
 `ros2 topic echo /imu/accel`
 
@@ -51,7 +51,7 @@ Camera
 
 # Teleoperation
 
-`ros2 run robo_rover robo_node`
+`ros2 run robo_rover rover_node`
 
 `ros2 run clanker_hardware wasd.py`
 
