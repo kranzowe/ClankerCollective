@@ -1,15 +1,19 @@
 [submodule "src/Autonomy"]
 	path = src/Autonomy
 	url = https://github.com/kranzowe/Autonomy.git
+	branch = main
 [submodule "src/Estimation"]
 	path = src/Estimation
 	url = https://github.com/kranzowe/Estimation.git
+	branch = main
 [submodule "src/Controls"]
 	path = src/Controls
 	url = https://github.com/kranzowe/Controls.git
+	branch = main
 [submodule "src/Interfaces"]
 	path = src/Interfaces
 	url = https://github.com/kranzowe/Interfaces.git
+	branch = main
 [submodule "src/ROBO_rover"]
 	path = src/ROBO_rover
 	url = https://github.com/spyalexs/ROBO_rover
