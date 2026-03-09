@@ -41,6 +41,9 @@ Lidar
 
 `ros2 topic echo /scan`
 
+Lidar subscriber, tells the front wall distance:
+`ros2 run lidar_detect wall_detector`
+
 IMU
 
 `ros2 run robo_rover rover_node`
