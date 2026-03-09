@@ -49,5 +49,8 @@ qtcreator-*
 # Emacs
 .#*
 
+.DS_STORE
+__pycache__
+
 # Catkin custom files
 CATKIN_IGNORE
