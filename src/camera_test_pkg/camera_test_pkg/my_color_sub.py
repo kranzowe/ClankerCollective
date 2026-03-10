@@ -104,9 +104,9 @@ class ImageListener(Node):
 
             
 #--------------------testing display------------------------
-        #cv2.imshow("Intel RealSense Camera", frame) 
+        cv2.imshow("Intel RealSense Camera", frame) 
         #cv2.imshow("mask", mask)
-        #cv2.waitKey(1) 
+        cv2.waitKey(1) 
         
        
 
