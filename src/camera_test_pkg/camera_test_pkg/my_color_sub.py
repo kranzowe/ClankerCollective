@@ -101,7 +101,7 @@ class ImageListener(Node):
             size_y: float64 (height)
 
             '''
-            
+
             
 #--------------------testing display------------------------
         #cv2.imshow("Intel RealSense Camera", frame) 
