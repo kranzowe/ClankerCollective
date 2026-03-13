@@ -41,9 +41,12 @@ Lidar
 
 `ros2 topic echo /scan --once`
 
-Lidar subscriber, tells the front wall distance:   
-`ros2 run lidar_detect wall_detector`   
-To check if Lidar topic is workiing:   
+Lidar subscriber, tells the front wall distance:
+  
+`ros2 run lidar_detect wall_detector`
+
+To check if Lidar topic is workiing:
+
 `ros2 topic echo /ld_distance`   
 IMU
 
