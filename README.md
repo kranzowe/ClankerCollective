@@ -35,6 +35,11 @@ git submodule update --remote --merge
 ```
 
 # Running Sensor Nodes
+Launch file for Lidar and wall distance detector:
+
+
+`ros2 launch lidar_detect lidar_distance.launch.py`
+
 Lidar
 
 `ros2 launch rplidar_ros view_rplidar_a1_launch.py`
