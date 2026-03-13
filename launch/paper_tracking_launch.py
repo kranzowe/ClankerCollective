@@ -23,7 +23,7 @@ def generate_launch_description():
             'enable_gyro': 'false',
             'enable_accel': 'false',
             'pointcloud.enable': 'false',
-            'rgb_camera.color_profile:=1920x1080x15'
+            'rgb_camera.color_profile': '1920x1080x15'
         }.items()
     )
     color_tracking_node = Node(
