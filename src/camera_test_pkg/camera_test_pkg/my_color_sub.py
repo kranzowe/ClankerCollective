@@ -99,8 +99,6 @@ class ImageListener(Node):
                 rectangle_msg.size_y = float(h) #height
                 
                 if area > 500:  #avoid small irrevelvent blobs
-                    self.get_logger().info(f"Target has attributes of {}")
-
                     self.rectangle_pub.publish(rectangle_msg)
                 
             
