@@ -128,7 +128,7 @@ class ImageListener(Node):
         r = self.get_parameter("fr").value
         g = self.get_parameter("fb").value
 
-        tol = self.get_parameter("col_tol".value)
+        tol = self.get_parameter("col_tol").value
 
 
         self.bgr_lower = np.array([b -tol, g - tol, r - tol])
