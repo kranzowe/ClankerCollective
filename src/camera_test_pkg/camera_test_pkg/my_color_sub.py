@@ -22,11 +22,13 @@ class ImageListener(Node):
         self.br = CvBridge()    #covert between ROS and OpenCV images
 
         #declare tuning params
-        b = self.declare_parameter("fb", 100)
-        r = self.declare_parameter("fr", 100)
-        g = self.declare_parameter("fg", 100)
+        self.declare_parameter("fb", 100)
+        self.declare_parameter("fr", 100)
+        self.declare_parameter("fg", 100)
 
-        tol = self.declare_parameter("col_tol", 20)
+        self.declare_parameter("th", 20)
+        self.declare_parameter("ts", 20)
+        self.declare_parameter("tl", 20)
 
         #sart a param wall timer
         self.create_timer(1.0, self.update_params)
@@ -42,7 +44,7 @@ class ImageListener(Node):
         blur_frame = blurred = cv2.GaussianBlur(frame, (5, 5), 0)   
         
         #convert to HSV, help single out the largest contour
-        hsv_frame = cv2.cvtColor(blur_frame, cv2.COLOR_BGR2HSV)
+        hls_frame = cv2.cvtColor(blur_frame, cv2.COLOR_BGR2HLS_FULL)
 
         #this is the upper and lower bound of colors that we are able to change
         lower_bound = np.array(self.bgr_lower)
@@ -58,7 +60,7 @@ class ImageListener(Node):
         '''
 
         #color thresholding, keep pixels in this range of the HSV spectrum. in range = white, out of range = black
-        mask = cv2.inRange(hsv_frame, lower_bound, upper_bound)
+        mask = cv2.inRange(hls_frame, lower_bound, upper_bound)
 
         #create the kernel and remove noise and fill in the blob to make centroid calculation more accurate.
         kernel = np.ones((5, 5), np.uint8)
@@ -124,15 +126,17 @@ class ImageListener(Node):
     def update_params(self):
 
         #update the ros2 parameters
-        b = self.get_parameter("fb").value
-        r = self.get_parameter("fr").value
-        g = self.get_parameter("fb").value
+        h = self.get_parameter("fh").value
+        s = self.get_parameter("fs").value
+        l = self.get_parameter("fl").value
 
-        tol = self.get_parameter("col_tol").value
+        tol_h = self.get_parameter("th").value
+        tol_s = self.get_parameter("ts").value
+        tol_l = self.get_parameter("tl").value
 
 
-        self.bgr_lower = np.array([b -tol, g - tol, r - tol])
-        self.bgr_upper = np.array([b + tol, g + tol, r + tol])
+        self.bgr_lower = np.array([h -tol_h, l- tol_l, s - tol_s])
+        self.bgr_upper = np.array([h + tol_h, l + tol_l, s + tol_s])
 
 
 def main(args = None):
