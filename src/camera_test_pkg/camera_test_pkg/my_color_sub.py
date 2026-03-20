@@ -21,6 +21,18 @@ class ImageListener(Node):
         self.sub            #prevent unused variable warning
         self.br = CvBridge()    #covert between ROS and OpenCV images
 
+        #declare tuning params
+        b = self.declare_parameter("fb", 100)
+        r = self.declare_parameter("fr", 100)
+        g = self.declare_parameter("fb", 100)
+
+        tol = self.declare_parameter("col_tol", 20)
+
+        #sart a param wall timer
+        self.create_timer(1.0, self.update_params)
+
+
+
 
     def listener_cb(self, data):
         #self.get_logger().info('Receiving video frame', throttle_duration_sec=2.0)
@@ -33,8 +45,8 @@ class ImageListener(Node):
         hsv_frame = cv2.cvtColor(blur_frame, cv2.COLOR_BGR2HSV)
 
         #this is the upper and lower bound of colors that we are able to change
-        lower_bound = np.array([40, 50, 50])
-        upper_bound = np.array([80, 255, 255])  
+        lower_bound = np.array(self.bgr_lower)
+        upper_bound = np.array(self.bgr_upper)  
 
         '''
         ----------------HSV explaination------------------------
@@ -110,7 +122,19 @@ class ImageListener(Node):
         cv2.imshow("mask", mask)
         cv2.waitKey(1) 
         
-       
+    def update_params(self):
+
+        #update the ros2 parameters
+        b = self.get_parameter("fb").value
+        r = self.get_parameter("fr").value
+        g = self.get_parameter("fb").value
+
+        tol = self.get_parameter("col_tol".value)
+
+
+        self.bgr_lower = np.array([b -tol, g - tol, r - tol])
+        self.bgr_upper = np.array([b + tol, g + tol, r + tol])
+
 
 def main(args = None):
     rclpy.init(args = args)
