@@ -24,7 +24,7 @@ class ImageListener(Node):
         #declare tuning params
         b = self.declare_parameter("fb", 100)
         r = self.declare_parameter("fr", 100)
-        g = self.declare_parameter("fb", 100)
+        g = self.declare_parameter("fg", 100)
 
         tol = self.declare_parameter("col_tol", 20)
 
@@ -98,8 +98,9 @@ class ImageListener(Node):
                 rectangle_msg.size_x = float(w) #width  
                 rectangle_msg.size_y = float(h) #height
                 
-                self.get_logger().info(f"area {area}")
                 if area > 500:  #avoid small irrevelvent blobs
+                    self.get_logger().info(f"Target has attributes of {}")
+
                     self.rectangle_pub.publish(rectangle_msg)
                 
             
