@@ -60,7 +60,7 @@ class ImageListener(Node):
         #iterate over all contours, key being the comparison method. Ideally, the largest will be the green paper held in front of it
         if len(contours) > 0: #checking if there are any contours to begin with
             cnt = max( contours, key = cv2.contourArea)  
-
+            
             x, y, w, h = cv2.boundingRect(cnt)  # (x,y) is the top left of the rectangle, w is the width and h is the height, assuming the shape is a rectangle
             cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)   #for testing, we can see the bounding rectangle on the camera frame.
             
@@ -72,7 +72,7 @@ class ImageListener(Node):
                 y_pos = int(M["m01"] / M["m00"])       #centroid calculation (calc 2 refresher)
                 cv2.circle(frame, (x_pos, y_pos), 7, (0,255,0), -1)#put a circle on the centroid (testing, can remove when we need to)   
             
-                area = M["m00"] #need this incase area is too small, wont publish data if blob area is tiny.
+                area = cv2.contourArea(cnt) #need this incase area is too small, wont publish data if blob area is tiny.
 
             #---------------Data to be published-----------------
 
