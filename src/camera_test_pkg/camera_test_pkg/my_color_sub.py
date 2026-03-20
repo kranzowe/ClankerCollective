@@ -22,9 +22,9 @@ class ImageListener(Node):
         self.br = CvBridge()    #covert between ROS and OpenCV images
 
         #declare tuning params
-        self.declare_parameter("fb", 100)
-        self.declare_parameter("fr", 100)
-        self.declare_parameter("fg", 100)
+        self.declare_parameter("fh", 100)
+        self.declare_parameter("fs", 100)
+        self.declare_parameter("fl", 100)
 
         self.declare_parameter("th", 20)
         self.declare_parameter("ts", 20)
