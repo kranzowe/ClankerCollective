@@ -86,8 +86,10 @@ class ImageListener(Node):
                 rectangle_msg.size_x = float(w) #width  
                 rectangle_msg.size_y = float(h) #height
                 
-                if area > 10000:  #avoid small irrevelvent blobs
+                self.get_logger().info(f"area {area}")
+                if area > 500:  #avoid small irrevelvent blobs
                     self.rectangle_pub.publish(rectangle_msg)
+                
             
 
             '''
