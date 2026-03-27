@@ -36,10 +36,14 @@ def generate_launch_description():
         executable='paper_targeting',
         name='control_target'
     )
-    robo_rover = Node(
-        package='robo_rover',
-        executable='rover_launch.py',
-        name='robo_rover'
+    robo_rover = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('robo_rover'),
+                'launch',
+                'rover_launch.py'
+            )
+        )
     )
     control_node = Node(
         package='clanker_controls',
