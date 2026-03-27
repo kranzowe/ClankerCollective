@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import numpy as np
-
+import time
 
 from vision_msgs.msg import BoundingBox2D   #publishing this
 #from geometry_msgs.msg import Pose2D    #publishing this
@@ -19,7 +19,13 @@ class ImageListener(Node):
         #self.pose_pub = self.create_publisher(Pose2D, '/blob_center') 
 
         self.sub            #prevent unused variable warning
-        self.br = CvBridge()    #covert between ROS and OpenCV images
+        cv_up = False
+        while not cv_up:
+            try:
+                self.br = CvBridge()    #covert between ROS and OpenCV images
+                cv_up = True
+            except:
+                time.sleep(0.2)
 
         #declare tuning params
         self.declare_parameter("fh", 85)
@@ -33,8 +39,8 @@ class ImageListener(Node):
         #sart a param wall timer
         self.create_timer(1.0, self.update_params)
 
-
-
+        self.bgr_lower = np.zeros(3)
+        self.bgr_upper = np.zeros(3)
 
     def listener_cb(self, data):
         #self.get_logger().info('Receiving video frame', throttle_duration_sec=2.0)
