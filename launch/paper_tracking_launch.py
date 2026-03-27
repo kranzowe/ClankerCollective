@@ -36,8 +36,20 @@ def generate_launch_description():
         executable='paper_targeting',
         name='control_target'
     )
+    robo_rover = Node(
+        package='robo_rover',
+        executable='robo_rover',
+        name='robo_rover'
+    )
+    control_node = Node(
+        package='clanker_controls',
+        executable='simple_control.py',
+        name='control'
+    )
     return LaunchDescription([
         realsense_launch,
         color_tracking_node,
-        targeting_node
+        targeting_node,
+        robo_rover,
+        control_node
     ])
