@@ -33,8 +33,8 @@ class ImageListener(Node):
         #sart a param wall timer
         self.create_timer(1.0, self.update_params)
 
-
-
+        self.bgr_lower = np.zeros(3)
+        self.bgr_upper = np.zeros(3)
 
     def listener_cb(self, data):
         #self.get_logger().info('Receiving video frame', throttle_duration_sec=2.0)
