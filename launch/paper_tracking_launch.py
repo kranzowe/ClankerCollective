@@ -38,7 +38,7 @@ def generate_launch_description():
     )
     robo_rover = Node(
         package='robo_rover',
-        executable='robo_rover',
+        executable='rover_launch.py',
         name='robo_rover'
     )
     control_node = Node(
