@@ -76,6 +76,16 @@ source ~/ClankerCollective/install/setup.bash
 
 ros2 run camera_test_pkg my_color_sub
 
+# Running mapping & localization
+
+`rviz2`
+
+`ros2 launch robo_rover rover_launch.py`
+
+`ros2 launch estimation_mapping estimation_launch.py`
+
+`ros2 launch estimation_localization amcl_localization.launch.py`
+
 
 # Teleoperation
 
