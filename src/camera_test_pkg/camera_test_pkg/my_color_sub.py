@@ -9,6 +9,7 @@ from nav_2d_msgs.msg import Path2D
 from geometry_msgs.msg import Pose2D
 
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 #  Pure-NumPy helpers  (no OpenCV)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -31,7 +32,8 @@ def bgr_to_hls(bgr: np.ndarray) -> np.ndarray:
     l = (c_max + c_min) / 2.0
 
     # --- Saturation ---
-    s = np.where(delta == 0, 0.0, delta / (1.0 - np.abs(2.0 * l - 1.0)))
+    denom = 1.0 - np.abs(2.0 * l - 1.0)
+    s = np.where(delta == 0, 0.0, np.where(denom == 0, 0.0, delta / np.maximum(denom, 1e-6)))
 
     # --- Hue (full 0-360 → rescaled to 0-255) ---
     eps = 1e-6
@@ -205,7 +207,9 @@ class ImageListener(Node):
         self.hls_lower = np.zeros(3, dtype=np.float32)
         self.hls_upper = np.zeros(3, dtype=np.float32)
 
-        self.get_logger().info("ImageListener node started (no-OpenCV version).")
+        self.get_logger().info("ImageListener node started.")
+
+        self.debug_pub = self.create_publisher(Image, '/debug_image', 10)
 
     # --------------------------------------------------------------------------
     def ros_image_to_numpy(self, msg: Image) -> np.ndarray:
@@ -364,6 +368,17 @@ class ImageListener(Node):
             self.path_pub.publish(path_msg)
 
         self.prev_point = prev_point
+
+        #image veiwer for debugging 
+        
+        debug_msg = Image()
+        debug_msg.header = data.header
+        debug_msg.height = frame.shape[0]
+        debug_msg.width = frame.shape[1]
+        debug_msg.encoding = 'bgr8'
+        debug_msg.step = frame.shape[1] * 3
+        debug_msg.data = frame.tobytes()
+        self.debug_pub.publish(debug_msg)
 
     # --------------------------------------------------------------------------
     def update_params(self):
