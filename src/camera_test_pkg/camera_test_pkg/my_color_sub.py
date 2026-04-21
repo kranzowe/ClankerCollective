@@ -115,60 +115,60 @@ def morphology_open_close(mask: np.ndarray, ksize: int = 5) -> np.ndarray:
     return closed
 
 
-def label_connected_components(mask: np.ndarray):
-    """
-    Fast flood-fill connected-component labelling using deque (2-5× faster than list-based).
-    Returns (label_map, num_labels) where label_map is HxW int32.
-    Labels are 1-indexed; 0 = background.
-    """
-    from collections import deque
+# def label_connected_components(mask: np.ndarray):
+#     """
+#     Fast flood-fill connected-component labelling using deque (2-5× faster than list-based).
+#     Returns (label_map, num_labels) where label_map is HxW int32.
+#     Labels are 1-indexed; 0 = background.
+#     """
+#     from collections import deque
     
-    binary = (mask > 0)
-    labels = np.zeros_like(binary, dtype=np.int32)
-    current_label = 0
-    rows, cols = binary.shape
+#     binary = (mask > 0)
+#     labels = np.zeros_like(binary, dtype=np.int32)
+#     current_label = 0
+#     rows, cols = binary.shape
 
-    for r in range(rows):
-        for c in range(cols):
-            if binary[r, c] and labels[r, c] == 0:
-                current_label += 1
-                # BFS with deque (much faster than list)
-                queue = deque([(r, c)])
-                labels[r, c] = current_label
-                while queue:
-                    cr, cc = queue.popleft()
-                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                        nr, nc = cr + dr, cc + dc
-                        if 0 <= nr < rows and 0 <= nc < cols \
-                                and binary[nr, nc] and labels[nr, nc] == 0:
-                            labels[nr, nc] = current_label
-                            queue.append((nr, nc))
+#     for r in range(rows):
+#         for c in range(cols):
+#             if binary[r, c] and labels[r, c] == 0:
+#                 current_label += 1
+#                 # BFS with deque (much faster than list)
+#                 queue = deque([(r, c)])
+#                 labels[r, c] = current_label
+#                 while queue:
+#                     cr, cc = queue.popleft()
+#                     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+#                         nr, nc = cr + dr, cc + dc
+#                         if 0 <= nr < rows and 0 <= nc < cols \
+#                                 and binary[nr, nc] and labels[nr, nc] == 0:
+#                             labels[nr, nc] = current_label
+#                             queue.append((nr, nc))
 
-    return labels, current_label
+#     return labels, current_label
 
 
-def find_blobs(mask: np.ndarray):
-    """
-    Return a list of dicts, one per connected component:
-      { 'area', 'cx', 'cy', 'x', 'y', 'w', 'h' }
-    """
-    labels, n = label_connected_components(mask)
-    blobs = []
-    for lbl in range(1, n + 1):
-        coords = np.argwhere(labels == lbl)   # (N, 2) → rows, cols
-        if len(coords) == 0:
-            continue
-        rows_lbl = coords[:, 0]
-        cols_lbl = coords[:, 1]
-        area = len(coords)
-        cy = int(rows_lbl.mean())
-        cx = int(cols_lbl.mean())
-        y = int(rows_lbl.min())
-        x = int(cols_lbl.min())
-        h = int(rows_lbl.max()) - y + 1
-        w = int(cols_lbl.max()) - x + 1
-        blobs.append(dict(area=area, cx=cx, cy=cy, x=x, y=y, w=w, h=h))
-    return blobs
+# def find_blobs(mask: np.ndarray):
+#     """
+#     Return a list of dicts, one per connected component:
+#       { 'area', 'cx', 'cy', 'x', 'y', 'w', 'h' }
+#     """
+#     labels, n = label_connected_components(mask)
+#     blobs = []
+#     for lbl in range(1, n + 1):
+#         coords = np.argwhere(labels == lbl)   # (N, 2) → rows, cols
+#         if len(coords) == 0:
+#             continue
+#         rows_lbl = coords[:, 0]
+#         cols_lbl = coords[:, 1]
+#         area = len(coords)
+#         cy = int(rows_lbl.mean())
+#         cx = int(cols_lbl.mean())
+#         y = int(rows_lbl.min())
+#         x = int(cols_lbl.min())
+#         h = int(rows_lbl.max()) - y + 1
+#         w = int(cols_lbl.max()) - x + 1
+#         blobs.append(dict(area=area, cx=cx, cy=cy, x=x, y=y, w=w, h=h))
+#     return blobs
 
 
 # ──────────────────────────────────────────────────────────────────────────────
