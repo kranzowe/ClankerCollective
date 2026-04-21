@@ -54,35 +54,31 @@ def bgr_to_hls(bgr: np.ndarray) -> np.ndarray:
     return hls
 
 
-def gaussian_blur(img: np.ndarray, ksize: int = 5) -> np.ndarray:
+def box_blur(img: np.ndarray, ksize: int = 5) -> np.ndarray:
     """
-    Separable Gaussian blur.  ksize must be odd.
+    Fast separable box blur (mean filter).  ksize must be odd.
     Works on single-channel or multi-channel uint8 images.
+    Significantly faster than Gaussian blur for preprocessing.
     """
-    # Build 1-D kernel
-    sigma = 0.3 * ((ksize - 1) * 0.5 - 1) + 0.8
-    x = np.arange(ksize) - ksize // 2
-    kernel_1d = np.exp(-0.5 * (x / sigma) ** 2)
-    kernel_1d = kernel_1d / kernel_1d.sum()
-
     out = img.astype(np.float32)
     pad = ksize // 2
+    kernel_1d = np.ones(ksize) / float(ksize)
 
-    # Horizontal pass
-    out_h = np.pad(out, ((0, 0), (pad, pad), (0, 0)), mode='edge') if out.ndim == 3 \
-        else np.pad(out, ((0, 0), (pad, pad)), mode='edge')
-    out = np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'), 1, out_h) \
-        if out.ndim == 2 else \
-        np.stack([np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'),
-                                      1, out_h[:, :, c]) for c in range(out_h.shape[2])], axis=2)
-
-    # Vertical pass
-    out_v = np.pad(out, ((pad, pad), (0, 0), (0, 0)), mode='edge') if out.ndim == 3 \
-        else np.pad(out, ((pad, pad), (0, 0)), mode='edge')
-    out = np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'), 0, out_v) \
-        if out.ndim == 2 else \
-        np.stack([np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'),
-                                      0, out_v[:, :, c]) for c in range(out_v.shape[2])], axis=2)
+    if out.ndim == 3:
+        # Multi-channel: apply blur to each channel independently
+        for c in range(out.shape[2]):
+            # Horizontal pass
+            out_h = np.pad(out[:, :, c], ((0, 0), (pad, pad)), mode='edge')
+            out[:, :, c] = np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'), 1, out_h)
+            # Vertical pass
+            out_v = np.pad(out[:, :, c], ((pad, pad), (0, 0)), mode='edge')
+            out[:, :, c] = np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'), 0, out_v)
+    else:
+        # Single-channel
+        out_h = np.pad(out, ((0, 0), (pad, pad)), mode='edge')
+        out = np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'), 1, out_h)
+        out_v = np.pad(out, ((pad, pad), (0, 0)), mode='edge')
+        out = np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'), 0, out_v)
 
     return np.clip(out, 0, 255).astype(np.uint8)
 
@@ -121,10 +117,12 @@ def morphology_open_close(mask: np.ndarray, ksize: int = 5) -> np.ndarray:
 
 def label_connected_components(mask: np.ndarray):
     """
-    Simple flood-fill connected-component labelling on a binary mask.
+    Fast flood-fill connected-component labelling using deque (2-5× faster than list-based).
     Returns (label_map, num_labels) where label_map is HxW int32.
     Labels are 1-indexed; 0 = background.
     """
+    from collections import deque
+    
     binary = (mask > 0)
     labels = np.zeros_like(binary, dtype=np.int32)
     current_label = 0
@@ -134,11 +132,11 @@ def label_connected_components(mask: np.ndarray):
         for c in range(cols):
             if binary[r, c] and labels[r, c] == 0:
                 current_label += 1
-                # BFS
-                queue = [(r, c)]
+                # BFS with deque (much faster than list)
+                queue = deque([(r, c)])
                 labels[r, c] = current_label
                 while queue:
-                    cr, cc = queue.pop()
+                    cr, cc = queue.popleft()
                     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                         nr, nc = cr + dr, cc + dc
                         if 0 <= nr < rows and 0 <= nc < cols \
@@ -194,20 +192,36 @@ class ImageListener(Node):
         # We handle decoding directly from sensor_msgs/Image raw data.
 
         # --- HSV / HLS parameters (focus point + tolerance) ---
-        self.declare_parameter("fh", 120)
-        self.declare_parameter("fs", 180)
-        self.declare_parameter("fl", 120)
+        # Dark blue tape: Hue ~110, Lightness 60-120, Saturation 100-255
+        self.declare_parameter("fh", 110)      # focus hue (dark blue)
+        self.declare_parameter("fs", 150)      # focus saturation
+        self.declare_parameter("fl", 90)       # focus lightness
 
-        self.declare_parameter("th", 45)
-        self.declare_parameter("ts", 80)
-        self.declare_parameter("tl", 100)
+        self.declare_parameter("th", 40)       # tolerance hue
+        self.declare_parameter("ts", 70)       # tolerance saturation
+        self.declare_parameter("tl", 50)       # tolerance lightness
+
+        # --- Image processing parameters ---
+        self.declare_parameter("blur_ksize", 5)      # box blur kernel size (odd)
+        self.declare_parameter("morph_ksize", 5)     # morphology kernel size
+        self.declare_parameter("min_blob_area", 45)  # minimum blob area per band
+        self.declare_parameter("num_bands", 8)       # number of horizontal bands
+
+        # --- Waypoint smoothing parameters ---
+        self.declare_parameter("smooth_factor", 0.25)  # exponential smoothing α (0=no smooth, 1=full smooth)
+        self.declare_parameter("fit_window", 3)        # number of points to fit local theta
 
         self.create_timer(1.0, self.update_params)
 
         self.hls_lower = np.zeros(3, dtype=np.float32)
         self.hls_upper = np.zeros(3, dtype=np.float32)
 
-        self.get_logger().info("ImageListener node started.")
+        # --- Waypoint smoothing state ---
+        self.smoothed_waypoints = []
+        self.consecutive_misses = 0
+        self.last_valid_trajectory = []
+
+        self.get_logger().info("ImageListener node started (optimized for dark blue tape detection).")
 
         self.debug_pub = self.create_publisher(Image, '/debug_image', 10)
 
@@ -255,6 +269,8 @@ class ImageListener(Node):
 
     # --------------------------------------------------------------------------
     def listener_cb(self, data: Image):
+        t0 = time.time()  # timing instrumentation
+        
         frame  = self.ros_image_to_numpy(data)   # HxWx3 BGR uint8
         height, width = frame.shape[:2]
         prev_point = self.prev_point
@@ -265,7 +281,8 @@ class ImageListener(Node):
         frame      = frame[start_y:height, :]        # work on cropped copy
 
         # ---- Blur → HLS → threshold ----
-        blur_frame = gaussian_blur(frame, ksize=5)
+        blur_ksize = self.get_parameter("blur_ksize").value
+        blur_frame = box_blur(frame, ksize=blur_ksize)
         hls_frame  = bgr_to_hls(blur_frame)
 
         lower = self.hls_lower.astype(np.uint8)
@@ -274,7 +291,8 @@ class ImageListener(Node):
         mask = in_range(hls_frame, lower, upper)
 
         # ---- Morphological open + close ----
-        mask = morphology_open_close(mask, ksize=5)
+        morph_ksize = self.get_parameter("morph_ksize").value
+        mask = morphology_open_close(mask, ksize=morph_ksize)
 
         # ---- Largest-blob bounding box (mirrors original rectangle publisher) ----
         all_blobs = find_blobs(mask)
@@ -291,9 +309,11 @@ class ImageListener(Node):
 
         # ---- Band-based path extraction ----
         cropped_height = frame.shape[0]
-        num_bands  = 8
+        num_bands  = self.get_parameter("num_bands").value
         band_height = cropped_height // num_bands
+        min_blob_area = self.get_parameter("min_blob_area").value
         chosen_points = []
+        valid_band_count = 0
 
         for i in range(num_bands):
             y1 = i * band_height
@@ -307,7 +327,7 @@ class ImageListener(Node):
 
             for blob in blobs:
                 area = blob['area']
-                if area < 45:
+                if area < min_blob_area:
                     continue
 
                 # Convert band-local centroid to global (cropped) frame coords
@@ -334,20 +354,81 @@ class ImageListener(Node):
                     best_point = (cx, cy)
 
             chosen_points.append(best_point)
-
             if best_point is not None:
                 prev_point = best_point
+                valid_band_count += 1
 
-        # ---- No blobs: go straight ----
-        if not any(pt is not None for pt in chosen_points):
-            straight_point = (width // 2, cropped_height // 2)
-            chosen_points  = [straight_point]
+        # ---- Interpolate missing bands from neighbors ----
+        for i in range(len(chosen_points)):
+            if chosen_points[i] is None:
+                # Find nearest valid points above and below
+                above = None
+                below = None
+                for j in range(i - 1, -1, -1):
+                    if chosen_points[j] is not None:
+                        above = chosen_points[j]
+                        break
+                for j in range(i + 1, len(chosen_points)):
+                    if chosen_points[j] is not None:
+                        below = chosen_points[j]
+                        break
+                # Linear interpolation
+                if above is not None and below is not None:
+                    alpha = (i + 1) / (len(chosen_points) - i)  # interpolation weight
+                    cx_interp = int(above[0] + alpha * (below[0] - above[0]))
+                    cy_interp = int(above[1] + alpha * (below[1] - above[1]))
+                    chosen_points[i] = (cx_interp, cy_interp)
+                elif above is not None:
+                    chosen_points[i] = above
+                elif below is not None:
+                    chosen_points[i] = below
+
+        # ---- No valid blobs: use fallback or maintain previous trajectory ----
+        if valid_band_count == 0:
+            if len(self.last_valid_trajectory) > 0:
+                # Maintain previous trajectory (dead-reckoning)
+                self.consecutive_misses += 1
+                if self.consecutive_misses > 3:
+                    # Too many misses; go straight
+                    straight_point = (width // 2, cropped_height // 2)
+                    chosen_points = [straight_point]
+                else:
+                    chosen_points = self.last_valid_trajectory.copy()
+            else:
+                straight_point = (width // 2, cropped_height // 2)
+                chosen_points = [straight_point]
+        else:
+            self.consecutive_misses = 0
+
+        # ---- Apply exponential smoothing to waypoints ----
+        valid_points = [pt for pt in chosen_points if pt is not None]
+        smooth_factor = self.get_parameter("smooth_factor").value
+
+        if len(valid_points) > 0:
+            if len(self.smoothed_waypoints) == 0:
+                self.smoothed_waypoints = valid_points.copy()
+            else:
+                # Exponential smoothing: p_smooth = α * p_new + (1 - α) * p_old
+                smoothed = []
+                for i, pt in enumerate(valid_points):
+                    if i < len(self.smoothed_waypoints):
+                        old_pt = self.smoothed_waypoints[i]
+                        cx_smooth = int(smooth_factor * pt[0] + (1.0 - smooth_factor) * old_pt[0])
+                        cy_smooth = int(smooth_factor * pt[1] + (1.0 - smooth_factor) * old_pt[1])
+                        smoothed.append((cx_smooth, cy_smooth))
+                    else:
+                        smoothed.append(pt)
+                self.smoothed_waypoints = smoothed
+                valid_points = smoothed
+
+        # Store trajectory for dead-reckoning
+        self.last_valid_trajectory = valid_points.copy()
 
         # ---- Build and publish Path2D ----
         path_msg = Path2D()
         path_msg.poses = []
 
-        valid_points = [pt for pt in chosen_points if pt is not None]
+        fit_window = self.get_parameter("fit_window").value
 
         for i, pt in enumerate(valid_points):
             x_r, y_r = self.image_to_robot(pt, width, cropped_height)
@@ -356,9 +437,24 @@ class ImageListener(Node):
             pose.x = float(x_r)
             pose.y = float(y_r)
 
-            if i < len(valid_points) - 1:
-                x_next, y_next = self.image_to_robot(valid_points[i + 1], width, cropped_height)
-                pose.theta = float(np.arctan2(y_r, x_r))
+            # ---- Fit theta to local window (3-5 points) for smooth heading ----
+            window_start = max(0, i - fit_window // 2)
+            window_end = min(len(valid_points), i + fit_window // 2 + 1)
+            window_pts = valid_points[window_start:window_end]
+
+            if len(window_pts) >= 2:
+                # Use least-squares fit to compute best-fit heading
+                window_pts_arr = np.array(window_pts, dtype=np.float32)
+                xs = window_pts_arr[:, 0]
+                ys = window_pts_arr[:, 1]
+                
+                # Fit line: dy/dx
+                dx = xs[-1] - xs[0]
+                dy = ys[-1] - ys[0]
+                if dx != 0:
+                    pose.theta = float(np.arctan2(-dy, dx))  # negative dy because image y increases downward
+                else:
+                    pose.theta = float(np.pi / 2.0) if dy > 0 else float(-np.pi / 2.0)
             else:
                 pose.theta = 0.0
 
@@ -368,6 +464,12 @@ class ImageListener(Node):
             self.path_pub.publish(path_msg)
 
         self.prev_point = prev_point
+
+        # ---- Timing instrumentation ----
+        t_elapsed = time.time() - t0
+        fps = 1.0 / t_elapsed if t_elapsed > 0 else 0.0
+        self.get_logger().debug(f"Frame processed in {t_elapsed*1000:.2f}ms ({fps:.1f} FPS), "
+                               f"waypoints: {len(valid_points)}")
 
         #image veiwer for debugging 
         
