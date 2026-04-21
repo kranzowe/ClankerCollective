@@ -223,6 +223,13 @@ class ImageListener(Node):
 
         self.get_logger().info("ImageListener node started (optimized for dark blue tape detection).")
 
+        # Debug publishers for tuning
+        self.declare_parameter("enable_debug_viz", True)
+        self.debug_original = self.create_publisher(Image, '/debug/original_cropped', 10)
+        self.debug_hls = self.create_publisher(Image, '/debug/hls_frame', 10)
+        self.debug_mask_raw = self.create_publisher(Image, '/debug/mask_raw', 10)
+        self.debug_mask_morph = self.create_publisher(Image, '/debug/mask_morphology', 10)
+        self.debug_bands = self.create_publisher(Image, '/debug/bands_and_waypoints', 10)
         self.debug_pub = self.create_publisher(Image, '/debug_image', 10)
 
     # --------------------------------------------------------------------------
@@ -289,6 +296,11 @@ class ImageListener(Node):
         upper = self.hls_upper.astype(np.uint8)
 
         mask = in_range(hls_frame, lower, upper)
+
+        # ---- Diagnostic: count pixels in mask ----
+        mask_pixels = np.sum(mask > 0)
+        mask_pct = 100.0 * mask_pixels / (mask.shape[0] * mask.shape[1])
+        self.get_logger().debug(f"Mask pixels: {mask_pixels} ({mask_pct:.2f}% of frame)")
 
         # ---- Morphological open + close ----
         morph_ksize = self.get_parameter("morph_ksize").value
@@ -400,7 +412,9 @@ class ImageListener(Node):
         else:
             self.consecutive_misses = 0
 
-        # ---- Apply exponential smoothing to waypoints ----
+        # ---- Diagnostic: band detection summary ----
+        self.get_logger().debug(f"Band extraction: {valid_band_count}/{num_bands} bands found valid blobs, "
+                               f"total candidates: {len([p for p in chosen_points if p is not None])}")
         valid_points = [pt for pt in chosen_points if pt is not None]
         smooth_factor = self.get_parameter("smooth_factor").value
 
@@ -471,16 +485,51 @@ class ImageListener(Node):
         self.get_logger().debug(f"Frame processed in {t_elapsed*1000:.2f}ms ({fps:.1f} FPS), "
                                f"waypoints: {len(valid_points)}")
 
-        #image veiwer for debugging 
-        
-        debug_msg = Image()
-        debug_msg.header = data.header
-        debug_msg.height = frame.shape[0]
-        debug_msg.width = frame.shape[1]
-        debug_msg.encoding = 'bgr8'
-        debug_msg.step = frame.shape[1] * 3
-        debug_msg.data = frame.tobytes()
-        self.debug_pub.publish(debug_msg)
+        # ---- Debug visualizations ----
+        if self.get_parameter("enable_debug_viz").value:
+            # Original cropped BGR
+            debug_msg = Image()
+            debug_msg.header = data.header
+            debug_msg.height = frame.shape[0]
+            debug_msg.width = frame.shape[1]
+            debug_msg.encoding = 'bgr8'
+            debug_msg.step = frame.shape[1] * 3
+            debug_msg.data = frame.tobytes()
+            self.debug_original.publish(debug_msg)
+
+            # HLS frame (convert back to BGR for visualization)
+            hls_bgr = hls_frame[:, :, ::-1].astype(np.uint8)
+            debug_hls_msg = Image()
+            debug_hls_msg.header = data.header
+            debug_hls_msg.height = hls_frame.shape[0]
+            debug_hls_msg.width = hls_frame.shape[1]
+            debug_hls_msg.encoding = 'bgr8'
+            debug_hls_msg.step = hls_frame.shape[1] * 3
+            debug_hls_msg.data = hls_bgr.tobytes()
+            self.debug_hls.publish(debug_hls_msg)
+
+            # Raw binary mask (convert to 3-channel BGR for visualization)
+            mask_3ch = np.stack([mask, mask, mask], axis=-1)
+            debug_mask_msg = Image()
+            debug_mask_msg.header = data.header
+            debug_mask_msg.height = mask.shape[0]
+            debug_mask_msg.width = mask.shape[1]
+            debug_mask_msg.encoding = 'bgr8'
+            debug_mask_msg.step = mask.shape[1] * 3
+            debug_mask_msg.data = mask_3ch.tobytes()
+            self.debug_mask_raw.publish(debug_mask_msg)
+
+            # Morphology-processed mask
+            # (Note: mask_morph_result should be computed; see below)
+            morph_3ch = np.stack([mask, mask, mask], axis=-1)  # Using final mask after morph
+            debug_morph_msg = Image()
+            debug_morph_msg.header = data.header
+            debug_morph_msg.height = mask.shape[0]
+            debug_morph_msg.width = mask.shape[1]
+            debug_morph_msg.encoding = 'bgr8'
+            debug_morph_msg.step = mask.shape[1] * 3
+            debug_morph_msg.data = morph_3ch.tobytes()
+            self.debug_mask_morph.publish(debug_morph_msg)
 
     # --------------------------------------------------------------------------
     def update_params(self):
@@ -494,6 +543,13 @@ class ImageListener(Node):
         # Order matches bgr_to_hls output: [H, L, S]
         self.hls_lower = np.array([h - tol_h, l - tol_l, s - tol_s], dtype=np.float32)
         self.hls_upper = np.array([h + tol_h, l + tol_l, s + tol_s], dtype=np.float32)
+        
+        self.get_logger().info(
+            f"HLS Thresholds Updated:\n"
+            f"  Hue:        {h - tol_h:.0f} - {h + tol_h:.0f}  (center: {h:.0f}, tol: {tol_h:.0f})\n"
+            f"  Lightness:  {l - tol_l:.0f} - {l + tol_l:.0f}  (center: {l:.0f}, tol: {tol_l:.0f})\n"
+            f"  Saturation: {s - tol_s:.0f} - {s + tol_s:.0f}  (center: {s:.0f}, tol: {tol_s:.0f})"
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
