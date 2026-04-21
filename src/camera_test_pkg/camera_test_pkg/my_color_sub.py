@@ -332,43 +332,17 @@ class ImageListener(Node):
             y2 = (i + 1) * band_height if i < num_bands - 1 else cropped_height
 
             band_mask = mask[y1:y2, :]
-            blobs     = find_blobs(band_mask)
+            cols = np.where(band_mask > 0)
 
-            best_score = -1e18
-            best_point = None
+            if len(cols[1]) < min_blob_area:
+                chosen_points.append(None)
+                continue
 
-            for blob in blobs:
-                area = blob['area']
-                if area < min_blob_area:
-                    continue
-
-                # Convert band-local centroid to global (cropped) frame coords
-                cx = blob['cx']
-                cy = y1 + blob['cy']
-
-                x_norm = (cx - width / 2) / (width / 2)
-                x_bias = (x_norm + 1) / 2   # 0=left, 1=right, only for scoring
-
-                continuity_penalty = 0.0
-                if prev_point is not None:
-                    continuity_penalty = abs(cx - prev_point[0]) * 2.0
-
-                area_weight  = 1.0
-                right_weight = 2000.0
-
-                score = (area * area_weight) + (x_bias * right_weight) - continuity_penalty
-
-                if x_bias > 0.7:
-                    score += 1500.0
-
-                if score > best_score:
-                    best_score = score
-                    best_point = (cx, cy)
-
-            chosen_points.append(best_point)
-            if best_point is not None:
-                prev_point = best_point
-                valid_band_count += 1
+            cx = int(cols[1].mean())
+            cy = y1 + int(cols[0].mean())
+            chosen_points.append((cx, cy))
+            prev_point = (cx, cy)
+            valid_band_count += 1
 
         # ---- Interpolate missing bands from neighbors ----
         for i in range(len(chosen_points)):
