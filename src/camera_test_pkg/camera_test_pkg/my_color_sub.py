@@ -3,7 +3,7 @@ from rclpy.node import Node
 import numpy as np
 import time
 
-from vision_msgs.msg import BoundingBox2D
+#from vision_msgs.msg import BoundingBox2D
 from sensor_msgs.msg import Image
 from nav_2d_msgs.msg import Path2D
 from geometry_msgs.msg import Pose2D
@@ -183,7 +183,7 @@ class ImageListener(Node):
         self.sub = self.create_subscription(
             Image, '/camera/camera/color/image_raw', self.listener_cb, 10)
 
-        self.rectangle_pub = self.create_publisher(BoundingBox2D, '/blob_rectangle', 10)
+        #self.rectangle_pub = self.create_publisher(BoundingBox2D, '/blob_rectangle', 10)
         self.path_pub      = self.create_publisher(Path2D,        '/line_path',       10)
 
         self.prev_point = None
@@ -307,17 +307,17 @@ class ImageListener(Node):
         mask = morphology_open_close(mask, ksize=morph_ksize)
 
         # ---- Largest-blob bounding box (mirrors original rectangle publisher) ----
-        all_blobs = find_blobs(mask)
-        if all_blobs:
-            biggest = max(all_blobs, key=lambda b: b['area'])
-            if biggest['area'] > 500:
-                rectangle_msg = BoundingBox2D()
-                rectangle_msg.center.position.x = float(biggest['cx'])
-                rectangle_msg.center.position.y = float(biggest['cy'])
-                rectangle_msg.center.theta       = 0.0
-                rectangle_msg.size_x             = float(biggest['w'])
-                rectangle_msg.size_y             = float(biggest['h'])
-                self.rectangle_pub.publish(rectangle_msg)
+        # all_blobs = find_blobs(mask)
+        # if all_blobs:
+        #     biggest = max(all_blobs, key=lambda b: b['area'])
+        #     if biggest['area'] > 500:
+        #         rectangle_msg = BoundingBox2D()
+        #         rectangle_msg.center.position.x = float(biggest['cx'])
+        #         rectangle_msg.center.position.y = float(biggest['cy'])
+        #         rectangle_msg.center.theta       = 0.0
+        #         rectangle_msg.size_x             = float(biggest['w'])
+        #         rectangle_msg.size_y             = float(biggest['h'])
+        #         self.rectangle_pub.publish(rectangle_msg)
 
         # ---- Band-based path extraction ----
         cropped_height = frame.shape[0]
