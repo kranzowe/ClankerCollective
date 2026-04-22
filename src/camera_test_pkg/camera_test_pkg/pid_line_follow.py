@@ -8,14 +8,15 @@ from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
 DEFAULT_SPEED = 0.38
+
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 0.75
-PATH_ANGLE_KP = 2.4
-PATH_ANGLE_KD = 0.35
-MAX_PATH_TURN = 2.5
+PATH_ANGLE_KP = 1.0
+PATH_ANGLE_KD = 0.0
+MAX_PATH_TURN = 7
 
 
 class LineFollower(Node):
@@ -66,7 +67,7 @@ class LineFollower(Node):
 
     def compute_path_turn(self):
         now = time.monotonic()
-        error = self.path_angle
+        error = self.path_angle + np.pi/2.0
 
         if self.prev_path_error_stamp is None:
             derivative = 0.0
@@ -92,7 +93,7 @@ class LineFollower(Node):
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED * speed_scale
+            twist.linear.x = DEFAULT_SPEED #* speed_scale
             twist.angular.z = turn_cmd
 
             self.get_logger().info(
@@ -117,7 +118,7 @@ def main(args=None):
     print('Starting line follower node!')
     rclpy.init(args=args)
     node = LineFollower()
-    node.create_timer(0.05, node.control_loop)  # 20 Hz control loop
+    node.create_timer(0.1, node.control_loop)
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

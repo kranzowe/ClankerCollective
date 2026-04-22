@@ -447,7 +447,7 @@ class ImageListener(Node):
                 else:
                     pose.theta = float(np.pi / 2.0) if dy > 0 else float(-np.pi / 2.0)
             else:
-                pose.theta = 0.0
+                pose.theta = float(-np.pi / 2.0)
 
             path_msg.poses.append(pose)
 
