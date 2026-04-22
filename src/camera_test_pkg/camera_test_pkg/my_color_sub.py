@@ -438,8 +438,8 @@ class ImageListener(Node):
                 ys = window_pts_arr[:, 1]
                 
                 # Fit line: dy/dx
-                dx = xs[-1] - xs[0]
-                dy = ys[-1] - ys[0]
+                dx = xs[0] - xs[0]
+                dy = ys[0] - ys[0]
                 if dx != 0:
                     pose.theta = float(np.arctan2(-dy, dx))  # negative dy because image y increases downward
                 else:
