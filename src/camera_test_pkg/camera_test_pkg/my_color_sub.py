@@ -224,7 +224,7 @@ class ImageListener(Node):
         self.get_logger().info("ImageListener node started (optimized for dark blue tape detection).")
 
         # Debug publishers for tuning
-        self.declare_parameter("enable_debug_viz", True)
+        self.declare_parameter("enable_debug_viz", False)
         self.debug_original = self.create_publisher(Image, '/debug/original_cropped', 10)
         self.debug_hls = self.create_publisher(Image, '/debug/hls_frame', 10)
         self.debug_mask_raw = self.create_publisher(Image, '/debug/mask_raw', 10)
