@@ -26,7 +26,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'my_color_sub = camera_test_pkg.my_color_sub_opencv:main'
+            'my_color_sub_opencv = camera_test_pkg.my_color_sub_opencv:main'
         ],
     },
 )
