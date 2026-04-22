@@ -428,26 +428,26 @@ class ImageListener(Node):
             pose.x = float(x_r)
             pose.y = float(y_r)
 
-            # ---- Fit theta to local window (3-5 points) for smooth heading ----
-            window_start = max(0, i - fit_window // 2)
-            window_end = min(len(valid_points), i + fit_window // 2 + 1)
-            window_pts = valid_points[window_start:window_end]
+            # Bearing from robot origin (bottom-center of cropped frame) to this waypoint
+            # x_r = forward (away from bottom), y_r = lateral (left/right)
+            pose.theta = float(np.arctan2(pose.y, pose.x))
 
-            if len(window_pts) >= 2:
-                # Use least-squares fit to compute best-fit heading
-                window_pts_arr = np.array(window_pts, dtype=np.float32)
-                xs = window_pts_arr[:, 0]
-                ys = window_pts_arr[:, 1]
-                
-                # Fit line: dy/dx
-                dx = xs[-1] - xs[0]
-                dy = ys[-1] - ys[0]
-                if dx != 0:
-                    pose.theta = float(np.arctan2(-dy, dx))  # negative dy because image y increases downward
-                else:
-                    pose.theta = float(np.pi / 2.0) if dy > 0 else float(-np.pi / 2.0)
-            else:
-                pose.theta = float(-np.pi / 2.0)
+            # ---- Old: fit theta to local window (3-5 points) for smooth heading ----
+            # window_start = max(0, i - fit_window // 2)
+            # window_end = min(len(valid_points), i + fit_window // 2 + 1)
+            # window_pts = valid_points[window_start:window_end]
+            # if len(window_pts) >= 2:
+            #     window_pts_arr = np.array(window_pts, dtype=np.float32)
+            #     xs = window_pts_arr[:, 0]
+            #     ys = window_pts_arr[:, 1]
+            #     dx = xs[-1] - xs[0]
+            #     dy = ys[-1] - ys[0]
+            #     if dx != 0:
+            #         pose.theta = float(np.arctan2(-dy, dx))
+            #     else:
+            #         pose.theta = float(np.pi / 2.0) if dy > 0 else float(-np.pi / 2.0)
+            # else:
+            #     pose.theta = float(-np.pi / 2.0)
 
             path_msg.poses.append(pose)
 
