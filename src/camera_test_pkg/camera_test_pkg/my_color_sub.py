@@ -421,7 +421,9 @@ class ImageListener(Node):
 
         for i, pt in enumerate(valid_points):
             x_r, y_r = self.image_to_robot(pt, width, cropped_height)
-
+            if not (np.isfinite(x_r) and np.isfinite(y_r)):
+                self.get_logger().warn(f'Skipping waypoint {i}: x_r={x_r}, y_r={y_r}, pt={pt}')
+                continue
             pose   = Pose2D()
             pose.x = float(x_r)
             pose.y = float(y_r)
@@ -438,8 +440,8 @@ class ImageListener(Node):
                 ys = window_pts_arr[:, 1]
                 
                 # Fit line: dy/dx
-                dx = xs[0] - xs[0]
-                dy = ys[0] - ys[0]
+                dx = xs[-1] - xs[0]
+                dy = ys[-1] - ys[0]
                 if dx != 0:
                     pose.theta = float(np.arctan2(-dy, dx))  # negative dy because image y increases downward
                 else:
