@@ -265,7 +265,8 @@ class ImageListener(Node):
     def image_to_robot(self, pt, width, height):
         px, py = pt
         x_norm = (px - width / 2) / (width / 2)
-        y_norm = ((height - py) / height) ** 1.5
+        y_ratio = max(0.0, (height - py) / height)
+        y_norm = y_ratio ** 1.5
 
         forward_scale = 1.0
         lateral_scale = 1.4
