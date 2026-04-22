@@ -98,7 +98,8 @@ class LineFollower(Node):
             self.get_logger().info(
                 f'path_err: {np.rad2deg(angle_error):.1f}deg | '
                 f'path_d: {np.rad2deg(angle_derivative):.1f}deg/s | '
-                f'total_z: {twist.angular.z:.2f}'
+                f'linear.x: {twist.linear.x:.3f} | '
+                f'angular.z: {twist.angular.z:.3f}'
             )
         else:
             # No fresh path: stop and wait
