@@ -67,7 +67,7 @@ class LineFollower(Node):
 
     def compute_path_turn(self):
         now = time.monotonic()
-        error = self.path_angle + np.pi/2.0
+        error = self.path_angle
 
         if self.prev_path_error_stamp is None:
             derivative = 0.0
@@ -78,7 +78,7 @@ class LineFollower(Node):
         self.prev_path_error = error
         self.prev_path_error_stamp = now
 
-        turn = -(PATH_ANGLE_KP * error + PATH_ANGLE_KD * derivative)
+        turn = (PATH_ANGLE_KP * error + PATH_ANGLE_KD * derivative)
         turn = float(np.clip(turn, -MAX_PATH_TURN, MAX_PATH_TURN))
         return turn, error, derivative
 
