@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 0.36
+DEFAULT_SPEED = 0.35
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -15,7 +15,7 @@ CENTER = 0.7
 # Path-follow control
 PATH_TIMEOUT_SEC = 2
 PATH_ANGLE_KP = 7.0
-PATH_ANGLE_KD = 12.0
+PATH_ANGLE_KD = 16.0
 MAX_PATH_TURN = 7
 TURN_BIAS = 0.0
 
