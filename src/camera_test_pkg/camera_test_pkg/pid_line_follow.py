@@ -17,7 +17,7 @@ PATH_TIMEOUT_SEC = 2
 PATH_ANGLE_KP = 3.0
 PATH_ANGLE_KD = 0.6
 MAX_PATH_TURN = 7
-TURN_BIAS = 1.0
+TURN_BIAS = 0.0
 
 class LineFollower(Node):
     def __init__(self):
