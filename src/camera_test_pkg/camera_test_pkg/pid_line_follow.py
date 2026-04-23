@@ -7,17 +7,17 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 0.35
+DEFAULT_SPEED = 1520.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 2
-PATH_ANGLE_KP = 7.0
-PATH_ANGLE_KD = 16.0
-MAX_PATH_TURN = 7
-TURN_BIAS = 0.0
+PATH_ANGLE_KP = 6.0
+PATH_ANGLE_KD = 0.0
+MAX_PATH_TURN = 1000.0
+TURN_BIAS = 1500.0
 
 class LineFollower(Node):
     def __init__(self):
@@ -70,7 +70,7 @@ class LineFollower(Node):
         error = self.path_angle
 
         if self.prev_path_error_stamp is None:
-            derivative = 0.0
+            derivative = 0.0 #hi
         else:
             dt = now - self.prev_path_error_stamp
             derivative = (error - self.prev_path_error) / dt if dt > 1e-3 else 0.0
@@ -105,7 +105,7 @@ class LineFollower(Node):
         else:
             # No fresh path: stop and wait
             self.prev_path_error_stamp = None
-            twist.linear.x = 0.0
+            twist.linear.x = 1500
             twist.angular.z = 0.0 + TURN_BIAS
             self.get_logger().info('No fresh path received, stopping.')
 
