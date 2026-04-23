@@ -14,10 +14,10 @@ CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 2
-PATH_ANGLE_KP = 2.0
-PATH_ANGLE_KD = 0.4
+PATH_ANGLE_KP = 3.0
+PATH_ANGLE_KD = 0.6
 MAX_PATH_TURN = 7
-TURN_BIAS = -1.0
+TURN_BIAS = 1.0
 
 class LineFollower(Node):
     def __init__(self):
@@ -106,7 +106,7 @@ class LineFollower(Node):
             # No fresh path: stop and wait
             self.prev_path_error_stamp = None
             twist.linear.x = 0.0
-            twist.angular.z = 0.0
+            twist.angular.z = 0.0 + TURN_BIAS
             self.get_logger().info('No fresh path received, stopping.')
 
         self.cmd_pub.publish(twist)
