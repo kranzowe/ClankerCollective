@@ -105,7 +105,7 @@ class LineFollower(Node):
         else:
             # No fresh path: stop and wait
             self.prev_path_error_stamp = None
-            twist.linear.x = 1500
+            twist.linear.x = 1500.0
             twist.angular.z = 0.0 + TURN_BIAS
             self.get_logger().info('No fresh path received, stopping.')
 
