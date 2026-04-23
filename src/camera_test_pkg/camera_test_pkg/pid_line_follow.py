@@ -80,7 +80,7 @@ class LineFollower(Node):
         self.prev_path_error_stamp = now
 
         turn = (PATH_ANGLE_KP * error + PATH_ANGLE_KD * derivative)
-        turn = float(np.clip(turn, -MAX_PATH_TURN, MAX_PATH_TURN))
+        turn = float(np.clip(turn, MAX_RIGHT_TURN, MAX_LEFT_TURN))
         return turn, error, derivative
 
     def scan_callback(self, msg):
