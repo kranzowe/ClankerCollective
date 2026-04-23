@@ -15,9 +15,9 @@ CENTER = 0.7
 # Path-follow control
 PATH_TIMEOUT_SEC = 2
 PATH_ANGLE_KP = 2.0
-PATH_ANGLE_KD = 0.1
+PATH_ANGLE_KD = 0.4
 MAX_PATH_TURN = 7
-
+TURN_BIAS = -1.0
 
 class LineFollower(Node):
     def __init__(self):
@@ -94,7 +94,7 @@ class LineFollower(Node):
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
             twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z = turn_cmd
+            twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
                 f'path_err: {np.rad2deg(angle_error):.1f}deg | '
