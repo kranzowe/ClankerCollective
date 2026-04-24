@@ -120,9 +120,9 @@ class LineFollower(Node):
             if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
                 if self.steps_right_turn >15 and self.has_fresh_path:  #want to get into the turn before looking for fresh path
+                    for i in range(3):
+                        None
                     self.fresh_path_flag = True
-                self.get_logger().info(self.has_fresh_path)
-                self.get_logger().info(self.steps_right_turn)
             else:
                 self.right_turn_detected = False
                 self.steps_right_turn = 0
