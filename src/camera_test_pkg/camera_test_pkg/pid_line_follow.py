@@ -42,6 +42,7 @@ class LineFollower(Node):
 
         self.right_turn_detected = False
         self.steps_right_turn = 0
+        self.fresh_path_flag = False
 
     def path_callback(self, msg: Path2D):
         thetas = []
@@ -112,18 +113,20 @@ class LineFollower(Node):
 
     def control_loop(self):
         twist = Twist()
-
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
             twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
-            if self.steps_right_turn < 25 and not self.has_fresh_path:
+            if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
+                if self.steps_right_turn >15 and self.has_fresh_path:  #want to get into the turn before looking for fresh path
+                    self.fresh_path_flag = True
                 self.get_logger().info(self.has_fresh_path)
                 self.get_logger().info(self.steps_right_turn)
             else:
                 self.right_turn_detected = False
                 self.steps_right_turn = 0
+                self.fresh_path_flag = False
 
         elif self.has_fresh_path():
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
