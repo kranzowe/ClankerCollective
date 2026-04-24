@@ -52,12 +52,20 @@ class LineFollower(Node):
                 thetas.append(pose.theta)
         
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
-            if not self.right_turn_detected:
-                self.get_logger().info('RIGHT TURN RIGHT TURN RIGH TURN')
-                self.right_turn_detected = True
-                self.steps_right_turn = 0
-            thetas.append(np.pi / 2) # bias it rightwards
-
+            # Check if all final poses are horizontally aligned (within tolerance)
+            final_poses = msg.poses[-4:]
+            y_tolerance = 0.15  # adjust based on your image scale
+            first_y = final_poses[0].y
+            y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
+            
+            if y_aligned:
+                if not self.right_turn_detected:
+                    self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
+                    self.right_turn_detected = True
+                    self.steps_right_turn = 0
+                thetas.append(np.pi / 2)  # bias it rightwards
+            else:
+                self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
 
         if not thetas:
             self.path_angle = None
