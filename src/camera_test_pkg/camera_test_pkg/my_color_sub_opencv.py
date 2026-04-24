@@ -198,14 +198,14 @@ class ImageListener(Node):
 
 
         ### SOME VERTICAL POINTS TO THE RIGHT NEEDED
-        num_vert_bands = 3   #6 horizontal bands, plans out the path for the robot, max of 6 poitns
-        vert_band_width = (width/2.0) // num_vert_bands
+        num_vert_bands = 4   #6 horizontal bands, plans out the path for the robot, max of 6 poitns
+        vert_band_width = (width*2.0/3.0) // num_vert_bands
         vert_chosen_points = []
         prev_point = None
 
         for i in range(num_vert_bands):
-            x1 =int(width/2.0) + i * vert_band_width
-            x2 = int(width/2.0) + (i + 1) * vert_band_width if i < num_vert_bands - 1 else width
+            x1 =int(width*2.0/3.0) + i * vert_band_width
+            x2 = int(width*2.0/3.0) + (i + 1) * vert_band_width if i < num_vert_bands - 1 else width
 
             vert_band_mask = mask[:, int(x1):int(x2)]
 

@@ -46,12 +46,12 @@ class LineFollower(Node):
     def path_callback(self, msg: Path2D):
         thetas = []
 
-        for pose in msg.poses[0:-3]:
+        for pose in msg.poses[0:-4]:
 
             if np.isfinite(pose.theta):
                 thetas.append(pose.theta)
         
-        if all(np.isfinite([pose.theta for pose in msg.poses[-3:]])):
+        if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
             if not self.right_turn_detected:
                 self.get_logger().info('RIGHT TURN RIGHT TURN RIGH TURN')
                 self.right_turn_detected = True
@@ -108,8 +108,8 @@ class LineFollower(Node):
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  -200.0 + TURN_BIAS
-            if self.steps_right_turn < 100:
+            twist.angular.z =  -250.0 + TURN_BIAS
+            if self.steps_right_turn < 10:
                 self.steps_right_turn += 1
             else:
                 self.right_turn_detected = False
