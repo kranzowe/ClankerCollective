@@ -228,7 +228,7 @@ class ImageListener(Node):
                 cy = y_global + h // 2
 
                 # for the debugging  (draw it on the OG frame)
-                cv2.circle(frame, (cx, cy), 3, (255, 0, 255), -1)
+                cv2.circle(frame, (int(cx), int(cy)), 3, (255, 0, 255), -1)
 
                 # normalize x position (-1 = left, 0 = center, +1 = right. ONLY FOR ROBOT)
                 y_norm = (cy - height / 2) / (height / 2)
