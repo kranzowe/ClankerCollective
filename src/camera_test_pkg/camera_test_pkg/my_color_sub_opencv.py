@@ -323,9 +323,9 @@ class ImageListener(Node):
 
         self.prev_point = prev_point
 
-        cv2.imshow("Processed Image", frame)
-        cv2.imshow("Mask", mask)
-        cv2.waitKey(1)
+        # cv2.imshow("Processed Image", frame)
+        # cv2.imshow("Mask", mask)
+        # cv2.waitKey(1)
 
     # ------------------ Parameter Update ------------------
     def update_params(self):
