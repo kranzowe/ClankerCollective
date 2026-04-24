@@ -327,13 +327,13 @@ class ImageListener(Node):
         count = 0
 
         if now - self.last_save_time >= 1.0:
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"frame_{timestamp}_{count}.jpg"
+            # timestamp = time.strftime("%Y%m%d_%H%M%S")
+            # filename = f"frame_{timestamp}_{count}.jpg"
 
-            cv2.imwrite(filename, frame)
-            cv2.imwrite(filename.replace("frame", "mask"), mask)
-            self.last_save_time = now
-            count +=1
+            # cv2.imwrite(filename, frame)
+            # cv2.imwrite(filename.replace("frame", "mask"), mask)
+            # self.last_save_time = now
+            # count +=1
         try:
             # cv2.imshow("Processed Image", frame)
             # cv2.imshow("Mask", mask)
