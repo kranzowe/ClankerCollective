@@ -108,7 +108,7 @@ class LineFollower(Node):
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  -500.0 + TURN_BIAS
+            twist.angular.z =  -200.0 + TURN_BIAS
             if self.steps_right_turn < 100:
                 self.steps_right_turn += 1
             else:
