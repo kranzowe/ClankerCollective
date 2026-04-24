@@ -47,7 +47,7 @@ class ImageListener(Node):
 
         self.bgr_lower = np.zeros(3)
         self.bgr_upper = np.zeros(3)
-
+        self.last_save_time = 0.0   
     # ------------------ Image to Robot Relation ------------------
     def image_to_robot(self, pt, width, height):
         px, py = pt
@@ -323,9 +323,18 @@ class ImageListener(Node):
 
         self.prev_point = prev_point
 
-        # cv2.imshow("Processed Image", frame)
-        # cv2.imshow("Mask", mask)
-        # cv2.waitKey(1)
+        now = time.time()
+        if now - self.last_save_time >= 1.0:
+            cv2.imwrite("/tmp/frame.jpg", frame)
+            cv2.imwrite("/tmp/mask.jpg", mask)
+            self.last_save_time = now
+        try:
+            # cv2.imshow("Processed Image", frame)
+            # cv2.imshow("Mask", mask)
+            # cv2.waitKey(1)
+        except cv2.error:
+            pass
+
 
     # ------------------ Parameter Update ------------------
     def update_params(self):
