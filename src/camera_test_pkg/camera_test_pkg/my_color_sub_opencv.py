@@ -306,14 +306,14 @@ class ImageListener(Node):
         for i in range(num_vert_bands):
             try:
                 pnt = vert_chosen_points[i]
-                x_r, y_r = self.image_to_robot(pnt, width, height) #our image points get converted to actual points the roboto can use becuase of our helper function SEE ABOVE
+                x_r, y_r = pnt[0], pnt[1] #our image points get converted to actual points the roboto can use becuase of our helper function SEE ABOVE
                 theta = 90.0 
             except:
                 x_r, y_r = -99.9, -99.9
                 theta = np.inf
             
             pose = Pose2D() #pose publish data, this is creating a waypoint tht goes to the path, each of the ~6 points are an x, y, and a theta (to the next point)
-            pose.x = float(x_r) #forward position in robot frame, big x means far away
+            pose.x = float() #forward position in robot frame, big x means far away
             pose.y = float(y_r)
             pose.theta = theta
             path_msg.poses.append(pose)
