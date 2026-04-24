@@ -15,7 +15,7 @@ CENTER = 0.7
 # Path-follow control
 PATH_TIMEOUT_SEC = 2
 PATH_ANGLE_KP = -170.0
-PATH_ANGLE_KD = -20.0
+PATH_ANGLE_KD = -25.0
 MAX_LEFT_TURN = 800.0
 MAX_RIGHT_TURN = -1000.0
 TURN_BIAS = 1450.0
@@ -41,6 +41,7 @@ class LineFollower(Node):
         self.prev_path_error_stamp = None
 
         self.right_turn_detected = False
+        self.steps_right_turn = 0
 
     def path_callback(self, msg: Path2D):
         thetas = []
@@ -51,6 +52,7 @@ class LineFollower(Node):
                 thetas.append(pose.theta)
         
         if all(np.isfinite([pose.theta for pose in msg.poses[-3:]])):
+            self.right_turn_detected = True
             thetas.append(90.0) # bias it rightwards
 
 
@@ -100,7 +102,16 @@ class LineFollower(Node):
     def control_loop(self):
         twist = Twist()
 
-        if self.has_fresh_path():
+        if self.right_turn_detected:
+            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.angular.z =  MAX_RIGHT_TURN + TURN_BIAS
+            if self.steps_right_turn < 10:
+                self.steps_right_turn += 1
+            else:
+                self.right_turn_detected = False
+                self.steps_right_turn = 0
+
+        elif self.has_fresh_path():
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
