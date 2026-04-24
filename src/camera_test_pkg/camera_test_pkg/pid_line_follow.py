@@ -40,6 +40,8 @@ class LineFollower(Node):
         self.prev_path_error = 0.0
         self.prev_path_error_stamp = None
 
+        self.right_turn_detected = False
+
     def path_callback(self, msg: Path2D):
         thetas = []
 
@@ -58,6 +60,9 @@ class LineFollower(Node):
         self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
                                            np.mean(np.cos(thetas))))
         self.path_angle_stamp = time.monotonic()
+
+        
+
 
     def has_fresh_path(self):
         return (
