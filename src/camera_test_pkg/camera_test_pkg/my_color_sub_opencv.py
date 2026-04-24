@@ -204,7 +204,7 @@ class ImageListener(Node):
         prev_point = None
 
         for i in range(num_vert_bands):
-            x1 =(width/2.0) + i * vert_band_width
+            x1 =int(width/2.0) + i * vert_band_width
             x2 = (i + 1) * vert_band_width if i < num_vert_bands - 1 else width
 
             vert_band_mask = mask[:, x1:x2]
