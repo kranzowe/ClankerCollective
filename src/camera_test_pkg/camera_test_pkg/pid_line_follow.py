@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1420.0
+DEFAULT_SPEED = 1415.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -108,8 +108,8 @@ class LineFollower(Node):
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  MAX_RIGHT_TURN + TURN_BIAS
-            if self.steps_right_turn < 10:
+            twist.angular.z =  -500.0 + TURN_BIAS
+            if self.steps_right_turn < 100:
                 self.steps_right_turn += 1
             else:
                 self.right_turn_detected = False
