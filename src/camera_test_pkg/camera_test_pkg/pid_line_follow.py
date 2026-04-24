@@ -45,9 +45,14 @@ class LineFollower(Node):
     def path_callback(self, msg: Path2D):
         thetas = []
 
-        for pose in msg.poses:
+        for pose in msg.poses[0:-2]:
+
             if np.isfinite(pose.theta):
                 thetas.append(pose.theta)
+        
+        if all(np.isfinite([pose.theta for pose in msg.poses[-3:]])):
+            thetas.append(90.0) # bias it rightwards
+
 
         if not thetas:
             self.path_angle = None

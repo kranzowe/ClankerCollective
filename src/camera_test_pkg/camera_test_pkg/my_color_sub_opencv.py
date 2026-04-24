@@ -307,7 +307,7 @@ class ImageListener(Node):
             try:
                 pnt = vert_chosen_points[i]
                 x_r, y_r = self.image_to_robot(pnt, width, height) #our image points get converted to actual points the roboto can use becuase of our helper function SEE ABOVE
-                theta = -90.0 
+                theta = 90.0 
             except:
                 x_r, y_r = -99.9, -99.9
                 theta = np.inf
