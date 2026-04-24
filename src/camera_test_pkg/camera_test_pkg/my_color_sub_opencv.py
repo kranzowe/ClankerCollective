@@ -332,6 +332,7 @@ class ImageListener(Node):
             # cv2.imshow("Processed Image", frame)
             # cv2.imshow("Mask", mask)
             # cv2.waitKey(1)
+            pass
         except cv2.error:
             pass
 
