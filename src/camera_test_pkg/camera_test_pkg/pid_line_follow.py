@@ -117,8 +117,9 @@ class LineFollower(Node):
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
             twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
-            if self.steps_right_turn < 15:
+            if self.steps_right_turn < 20:
                 self.steps_right_turn += 1
+                print(self.has_fresh_path)
             else:
                 self.right_turn_detected = False
                 self.steps_right_turn = 0
