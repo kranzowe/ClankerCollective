@@ -205,11 +205,11 @@ class ImageListener(Node):
 
         for i in range(num_vert_bands):
             x1 =int(width/2.0) + i * vert_band_width
-            x2 = (i + 1) * vert_band_width if i < num_vert_bands - 1 else width
+            x2 = int(width/2.0) + (i + 1) * vert_band_width if i < num_vert_bands - 1 else width
 
-            vert_band_mask = mask[:, x1:x2]
+            vert_band_mask = mask[:, int(x1):int(x2)]
 
-            contours, _ = cv2.findContours(band_mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE) #finding contours within each individual band
+            contours, _ = cv2.findContours(vert_band_mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE) #finding contours within each individual band
 
             best_area = 0   #temp vars
             best_point = None
