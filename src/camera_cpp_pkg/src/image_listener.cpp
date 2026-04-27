@@ -191,8 +191,9 @@ private:
     // ---- Main Callback ----
     void callback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
-        if (msg->encoding != "bgr8") {
-            RCLCPP_WARN(get_logger(), "Expected bgr8, got %s", msg->encoding.c_str());
+        bool is_rgb8 = (msg->encoding == "rgb8");
+        if (msg->encoding != "bgr8" && !is_rgb8) {
+            RCLCPP_WARN(get_logger(), "Expected bgr8 or rgb8, got %s", msg->encoding.c_str());
             return;
         }
 
@@ -203,6 +204,19 @@ private:
         int start_y = (int)(orig_height * 0.25);
         int height  = orig_height - start_y;   // cropped frame height
         const uint8_t *crop_ptr = msg->data.data() + start_y * width * 3;
+
+        // ---- If rgb8, swap R and B so the rest of the pipeline sees BGR ----
+        std::vector<uint8_t> rgb_swapped;
+        if (is_rgb8) {
+            int n = width * height * 3;
+            rgb_swapped.resize(n);
+            for (int i = 0; i < n; i += 3) {
+                rgb_swapped[i]   = crop_ptr[i+2]; // B ← R
+                rgb_swapped[i+1] = crop_ptr[i+1]; // G
+                rgb_swapped[i+2] = crop_ptr[i];   // R ← B
+            }
+            crop_ptr = rgb_swapped.data();
+        }
 
         // ---- Gaussian blur 5×5 ----
         std::vector<uint8_t> blurred;
