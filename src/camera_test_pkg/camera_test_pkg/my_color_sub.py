@@ -413,13 +413,10 @@ class ImageListener(Node):
         for i in range(num_vert_bands):
             pnt = vert_chosen_points[i]
             if pnt is not None:
-                x_r, y_r = self.image_to_robot(pnt, cropped_width, cropped_height)
-                theta = np.pi / 2.0  # 90 degrees for right-side waypoints
-                
                 pose = Pose2D()
-                pose.x = float(x_r)
-                pose.y = float(y_r)
-                pose.theta = float(theta)
+                pose.x = float(pnt[0])   # raw pixel x
+                pose.y = float(pnt[1])   # raw pixel y  ← this is what y_tolerance=10 expects
+                pose.theta = 90.0        # match OpenCV version exactly
                 path_msg.poses.append(pose)
 
         if len(path_msg.poses) >= 1:
