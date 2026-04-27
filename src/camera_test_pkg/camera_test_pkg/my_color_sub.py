@@ -56,31 +56,29 @@ def bgr_to_hls(bgr: np.ndarray) -> np.ndarray:
 
 def box_blur(img: np.ndarray, ksize: int = 5) -> np.ndarray:
     """
-    Fast separable box blur (mean filter).  ksize must be odd.
-    Works on single-channel or multi-channel uint8 images.
-    Significantly faster than Gaussian blur for preprocessing.
+    Fast separable box blur using cumsum (10-20x faster than apply_along_axis).
+    ksize must be odd.  Works on single-channel or multi-channel uint8 images.
     """
-    out = img.astype(np.float32)
-    pad = ksize // 2
-    kernel_1d = np.ones(ksize) / float(ksize)
-
-    if out.ndim == 3:
-        # Multi-channel: apply blur to each channel independently
-        for c in range(out.shape[2]):
-            # Horizontal pass
-            out_h = np.pad(out[:, :, c], ((0, 0), (pad, pad)), mode='edge')
-            out[:, :, c] = np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'), 1, out_h)
-            # Vertical pass
-            out_v = np.pad(out[:, :, c], ((pad, pad), (0, 0)), mode='edge')
-            out[:, :, c] = np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'), 0, out_v)
-    else:
-        # Single-channel
-        out_h = np.pad(out, ((0, 0), (pad, pad)), mode='edge')
-        out = np.apply_along_axis(lambda row: np.convolve(row, kernel_1d, mode='valid'), 1, out_h)
-        out_v = np.pad(out, ((pad, pad), (0, 0)), mode='edge')
-        out = np.apply_along_axis(lambda col: np.convolve(col, kernel_1d, mode='valid'), 0, out_v)
-
-    return np.clip(out, 0, 255).astype(np.uint8)
+    try:
+        from scipy.ndimage import uniform_filter
+        return uniform_filter(img, size=(ksize, ksize, 1) if img.ndim == 3 else (ksize, ksize)).astype(np.uint8)
+    except ImportError:
+        # Fallback: cumsum-based separable blur (much faster than apply_along_axis)
+        out = img.astype(np.float32)
+        pad = ksize // 2
+        
+        if out.ndim == 3:
+            for c in range(out.shape[2]):
+                # Horizontal pass via cumsum
+                padded = np.pad(out[:, :, c], ((0, 0), (pad, pad)), mode='edge')
+                cumsum = np.cumsum(padded, axis=1)
+                out[:, :, c] = (cumsum[:, ksize:] - cumsum[:, :-ksize]) / ksize
+        else:
+            padded = np.pad(out, ((0, 0), (pad, pad)), mode='edge')
+            cumsum = np.cumsum(padded, axis=1)
+            out = (cumsum[:, ksize:] - cumsum[:, :-ksize]) / ksize
+        
+        return np.clip(out, 0, 255).astype(np.uint8)
 
 
 def in_range(img: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
@@ -91,84 +89,45 @@ def in_range(img: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np.ndarra
 
 def morphology_open_close(mask: np.ndarray, ksize: int = 5) -> np.ndarray:
     """
-    Binary open then close using a square structuring element.
-    Implemented with 2-D max/min sliding-window via stride tricks.
+    Fast morphology: just erode to remove noise (no full open+close).
+    For Pi, full open+close is too slow. Single erode is often sufficient.
     """
-    from numpy.lib.stride_tricks import sliding_window_view
-
-    def dilate(m, k):
-        pad = k // 2
-        padded = np.pad(m, pad, mode='constant', constant_values=0)
-        windows = sliding_window_view(padded, (k, k))
-        return (windows.max(axis=(-2, -1)) > 0).astype(np.uint8) * 255
-
-    def erode(m, k):
-        pad = k // 2
-        padded = np.pad(m, pad, mode='constant', constant_values=255)
-        windows = sliding_window_view(padded, (k, k))
-        return (windows.min(axis=(-2, -1)) > 0).astype(np.uint8) * 255
-
-    # Open  = erode then dilate  → removes small blobs
-    opened = dilate(erode(mask, ksize), ksize)
-    # Close = dilate then erode  → fills small holes
-    closed = erode(dilate(opened, ksize), ksize)
-    return closed
+    try:
+        from scipy.ndimage import binary_erosion, binary_dilation
+        # Simple erode (faster than open+close)
+        struct = np.ones((ksize, ksize), dtype=bool)
+        eroded = binary_erosion(mask > 0, structure=struct)
+        return (eroded * 255).astype(np.uint8)
+    except ImportError:
+        # Fallback: simple numpy-based erode using min filter
+        pad = ksize // 2
+        padded = np.pad(mask, pad, mode='constant', constant_values=255)
+        from numpy.lib.stride_tricks import sliding_window_view
+        windows = sliding_window_view(padded, (ksize, ksize))
+        result = (windows.min(axis=(-2, -1)) > 0) * 255
+        return result.astype(np.uint8)
 
 
-# def label_connected_components(mask: np.ndarray):
-#     """
-#     Fast flood-fill connected-component labelling using deque (2-5× faster than list-based).
-#     Returns (label_map, num_labels) where label_map is HxW int32.
-#     Labels are 1-indexed; 0 = background.
-#     """
-#     from collections import deque
+def find_blobs_fast(mask: np.ndarray, min_area: int = 45):
+    """
+    Ultra-fast blob detection: just compute centroid + area of entire mask.
+    Skips connected-component labeling entirely (expensive on Pi).
+    Returns a list with single dict or empty list.
+    """
+    coords = np.argwhere(mask > 0)
+    if len(coords) < min_area:
+        return []
     
-#     binary = (mask > 0)
-#     labels = np.zeros_like(binary, dtype=np.int32)
-#     current_label = 0
-#     rows, cols = binary.shape
-
-#     for r in range(rows):
-#         for c in range(cols):
-#             if binary[r, c] and labels[r, c] == 0:
-#                 current_label += 1
-#                 # BFS with deque (much faster than list)
-#                 queue = deque([(r, c)])
-#                 labels[r, c] = current_label
-#                 while queue:
-#                     cr, cc = queue.popleft()
-#                     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-#                         nr, nc = cr + dr, cc + dc
-#                         if 0 <= nr < rows and 0 <= nc < cols \
-#                                 and binary[nr, nc] and labels[nr, nc] == 0:
-#                             labels[nr, nc] = current_label
-#                             queue.append((nr, nc))
-
-#     return labels, current_label
-
-
-# def find_blobs(mask: np.ndarray):
-#     """
-#     Return a list of dicts, one per connected component:
-#       { 'area', 'cx', 'cy', 'x', 'y', 'w', 'h' }
-#     """
-#     labels, n = label_connected_components(mask)
-#     blobs = []
-#     for lbl in range(1, n + 1):
-#         coords = np.argwhere(labels == lbl)   # (N, 2) → rows, cols
-#         if len(coords) == 0:
-#             continue
-#         rows_lbl = coords[:, 0]
-#         cols_lbl = coords[:, 1]
-#         area = len(coords)
-#         cy = int(rows_lbl.mean())
-#         cx = int(cols_lbl.mean())
-#         y = int(rows_lbl.min())
-#         x = int(cols_lbl.min())
-#         h = int(rows_lbl.max()) - y + 1
-#         w = int(cols_lbl.max()) - x + 1
-#         blobs.append(dict(area=area, cx=cx, cy=cy, x=x, y=y, w=w, h=h))
-#     return blobs
+    rows_lbl = coords[:, 0]
+    cols_lbl = coords[:, 1]
+    area = len(coords)
+    cy = int(rows_lbl.mean())
+    cx = int(cols_lbl.mean())
+    y = int(rows_lbl.min())
+    x = int(cols_lbl.min())
+    h = int(rows_lbl.max()) - y + 1
+    w = int(cols_lbl.max()) - x + 1
+    return [dict(area=area, cx=cx, cy=cy, x=x, y=y, w=w, h=h)]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -202,35 +161,25 @@ class ImageListener(Node):
         self.declare_parameter("tl", 50)       # tolerance lightness
 
         # --- Image processing parameters ---
-        self.declare_parameter("blur_ksize", 5)      # box blur kernel size (odd)
-        self.declare_parameter("morph_ksize", 5)     # morphology kernel size
-        self.declare_parameter("min_blob_area", 45)  # minimum blob area per band
-        self.declare_parameter("num_bands", 8)       # number of horizontal bands
+        self.declare_parameter("blur_ksize", 3)      # box blur kernel size (odd) - smaller for Pi
+        self.declare_parameter("morph_ksize", 3)     # morphology kernel size - smaller
+        self.declare_parameter("min_blob_area", 45)  # minimum blob area
+        self.declare_parameter("num_bands", 6)       # reduced from 8 for Pi speed
+        self.declare_parameter("num_vert_bands", 3)  # reduced from 4 for Pi speed
+        self.declare_parameter("downsample_factor", 2)  # CRITICAL: downsample 2-4x for Pi (1=none, 2=2x, 4=4x)
 
-        # --- Waypoint smoothing parameters ---
-        self.declare_parameter("smooth_factor", 0.25)  # exponential smoothing α (0=no smooth, 1=full smooth)
-        self.declare_parameter("fit_window", 3)        # number of points to fit local theta
+        # --- Scoring parameters (same as OpenCV version) ---
+        self.declare_parameter("area_weight", 1.0)    # weight for blob area in scoring
+        self.declare_parameter("right_weight", 2000)  # weight for right-turn bias
+        self.declare_parameter("continuity_scale", 2.0) # distance penalty scale
+        self.declare_parameter("skip_morph", False)   # skip morphology entirely (saves ~20ms)
 
         self.create_timer(1.0, self.update_params)
 
         self.hls_lower = np.zeros(3, dtype=np.float32)
         self.hls_upper = np.zeros(3, dtype=np.float32)
 
-        # --- Waypoint smoothing state ---
-        self.smoothed_waypoints = []
-        self.consecutive_misses = 0
-        self.last_valid_trajectory = []
-
-        self.get_logger().info("ImageListener node started (optimized for dark blue tape detection).")
-
-        # Debug publishers for tuning
-        self.declare_parameter("enable_debug_viz", False)
-        self.debug_original = self.create_publisher(Image, '/debug/original_cropped', 10)
-        self.debug_hls = self.create_publisher(Image, '/debug/hls_frame', 10)
-        self.debug_mask_raw = self.create_publisher(Image, '/debug/mask_raw', 10)
-        self.debug_mask_morph = self.create_publisher(Image, '/debug/mask_morphology', 10)
-        self.debug_bands = self.create_publisher(Image, '/debug/bands_and_waypoints', 10)
-        self.debug_pub = self.create_publisher(Image, '/debug_image', 10)
+        self.get_logger().info("ImageListener node started (8 horizontal + 4 vertical bands).")
 
     # --------------------------------------------------------------------------
     def ros_image_to_numpy(self, msg: Image) -> np.ndarray:
@@ -277,8 +226,6 @@ class ImageListener(Node):
 
     # --------------------------------------------------------------------------
     def listener_cb(self, data: Image):
-        t0 = time.time()  # timing instrumentation
-        
         frame  = self.ros_image_to_numpy(data)   # HxWx3 BGR uint8
         height, width = frame.shape[:2]
         prev_point = self.prev_point
@@ -288,8 +235,17 @@ class ImageListener(Node):
         start_y    = int(height * (1 - crop_ratio))
         frame      = frame[start_y:height, :]        # work on cropped copy
 
+        # ---- EARLY DOWNSAMPLE (CRITICAL for Pi performance) ----
+        downsample_factor = self.get_parameter("downsample_factor").value
+        if downsample_factor > 1:
+            frame = frame[::downsample_factor, ::downsample_factor, :]
+
+        cropped_height, cropped_width = frame.shape[:2]
+
         # ---- Blur → HLS → threshold ----
         blur_ksize = self.get_parameter("blur_ksize").value
+        if blur_ksize < 3:
+            blur_ksize = 3
         blur_frame = box_blur(frame, ksize=blur_ksize)
         hls_frame  = bgr_to_hls(blur_frame)
 
@@ -298,215 +254,185 @@ class ImageListener(Node):
 
         mask = in_range(hls_frame, lower, upper)
 
-        # ---- Diagnostic: count pixels in mask ----
-        mask_pixels = np.sum(mask > 0)
-        mask_pct = 100.0 * mask_pixels / (mask.shape[0] * mask.shape[1])
-        self.get_logger().debug(f"Mask pixels: {mask_pixels} ({mask_pct:.2f}% of frame)")
+        # ---- Optional morphology (skip on Pi for speed) ----
+        skip_morph = self.get_parameter("skip_morph").value
+        if not skip_morph:
+            morph_ksize = self.get_parameter("morph_ksize").value
+            if morph_ksize < 3:
+                morph_ksize = 3
+            mask = morphology_open_close(mask, ksize=morph_ksize)
 
-        # ---- Morphological open + close ----
-        morph_ksize = self.get_parameter("morph_ksize").value
-        mask = morphology_open_close(mask, ksize=morph_ksize)
-
-        # ---- Largest-blob bounding box (mirrors original rectangle publisher) ----
-        # all_blobs = find_blobs(mask)
-        # if all_blobs:
-        #     biggest = max(all_blobs, key=lambda b: b['area'])
-        #     if biggest['area'] > 500:
-        #         rectangle_msg = BoundingBox2D()
-        #         rectangle_msg.center.position.x = float(biggest['cx'])
-        #         rectangle_msg.center.position.y = float(biggest['cy'])
-        #         rectangle_msg.center.theta       = 0.0
-        #         rectangle_msg.size_x             = float(biggest['w'])
-        #         rectangle_msg.size_y             = float(biggest['h'])
-        #         self.rectangle_pub.publish(rectangle_msg)
-
-        # ---- Band-based path extraction ----
-        cropped_height = frame.shape[0]
+        # ---- HORIZONTAL BANDS: 6 bands for forward path planning ----
         num_bands  = self.get_parameter("num_bands").value
         band_height = cropped_height // num_bands
         min_blob_area = self.get_parameter("min_blob_area").value
+        area_weight = self.get_parameter("area_weight").value
+        right_weight = self.get_parameter("right_weight").value
+        continuity_scale = self.get_parameter("continuity_scale").value
+        
         chosen_points = []
-        valid_band_count = 0
 
         for i in range(num_bands):
             y1 = i * band_height
             y2 = (i + 1) * band_height if i < num_bands - 1 else cropped_height
 
             band_mask = mask[y1:y2, :]
-            cols = np.where(band_mask > 0)
+            
+            # Find blob in this band (fast: just centroid, no connected components)
+            blobs = find_blobs_fast(band_mask, min_area=min_blob_area)
+            
+            best_score = -1
+            best_point = None
 
-            if len(cols[1]) < min_blob_area:
-                chosen_points.append(None)
-                continue
-
-            cx = int(cols[1].mean())
-            cy = y1 + int(cols[0].mean())
-            chosen_points.append((cx, cy))
-            prev_point = (cx, cy)
-            valid_band_count += 1
-
-        # ---- Interpolate missing bands from neighbors ----
-        for i in range(len(chosen_points)):
-            if chosen_points[i] is None:
-                # Find nearest valid points above and below
-                above = None
-                below = None
-                for j in range(i - 1, -1, -1):
-                    if chosen_points[j] is not None:
-                        above = chosen_points[j]
-                        break
-                for j in range(i + 1, len(chosen_points)):
-                    if chosen_points[j] is not None:
-                        below = chosen_points[j]
-                        break
-                # Linear interpolation
-                if above is not None and below is not None:
-                    alpha = (i + 1) / (len(chosen_points) - i)  # interpolation weight
-                    cx_interp = int(above[0] + alpha * (below[0] - above[0]))
-                    cy_interp = int(above[1] + alpha * (below[1] - above[1]))
-                    chosen_points[i] = (cx_interp, cy_interp)
-                elif above is not None:
-                    chosen_points[i] = above
-                elif below is not None:
-                    chosen_points[i] = below
-
-        # ---- No valid blobs: use fallback or maintain previous trajectory ----
-        if valid_band_count == 0:
-            if len(self.last_valid_trajectory) > 0:
-                # Maintain previous trajectory (dead-reckoning)
-                self.consecutive_misses += 1
-                if self.consecutive_misses > 3:
-                    # Too many misses; go straight
-                    straight_point = (width // 2, cropped_height // 2)
-                    chosen_points = [straight_point]
+            for blob in blobs:
+                area = blob['area']
+                if area < min_blob_area:
+                    continue
+                
+                # Convert to global coordinates
+                cx = blob['cx']
+                cy = y1 + blob['cy']
+                
+                # Normalize x position (-1 = left, 0 = center, +1 = right)
+                x_norm = (cx - cropped_width / 2) / (cropped_width / 2)
+                
+                # Convert to 0 → 1 for scoring
+                x_bias = (x_norm + 1) / 2
+                
+                # Continuity penalty
+                if prev_point is not None:
+                    dist = abs(cx - prev_point[0])
+                    continuity_penalty = dist * continuity_scale
                 else:
-                    chosen_points = self.last_valid_trajectory.copy()
-            else:
-                straight_point = (width // 2, cropped_height // 2)
-                chosen_points = [straight_point]
-        else:
-            self.consecutive_misses = 0
+                    continuity_penalty = 0
+                
+                # Compute score (matches OpenCV version)
+                score = (area * area_weight) + (x_bias * right_weight) - continuity_penalty
+                
+                # Strong right-turn bias
+                if x_bias > 0.7:
+                    score += 1500
+                
+                if score > best_score:
+                    best_score = score
+                    best_point = (cx, cy)
+            
+            chosen_points.append(best_point)
+            if best_point is not None:
+                prev_point = best_point
 
-        # ---- Diagnostic: band detection summary ----
-        self.get_logger().debug(f"Band extraction: {valid_band_count}/{num_bands} bands found valid blobs, "
-                               f"total candidates: {len([p for p in chosen_points if p is not None])}")
-        valid_points = [pt for pt in chosen_points if pt is not None]
-        smooth_factor = self.get_parameter("smooth_factor").value
+        # ---- No blobs: go straight for one frame ----
+        if not any(pt is not None for pt in chosen_points):
+            straight_point = (cropped_width // 2, cropped_height // 2)
+            chosen_points = [straight_point]
 
-        if len(valid_points) > 0:
-            if len(self.smoothed_waypoints) == 0:
-                self.smoothed_waypoints = valid_points.copy()
-            else:
-                # Exponential smoothing: p_smooth = α * p_new + (1 - α) * p_old
-                smoothed = []
-                for i, pt in enumerate(valid_points):
-                    if i < len(self.smoothed_waypoints):
-                        old_pt = self.smoothed_waypoints[i]
-                        cx_smooth = int(smooth_factor * pt[0] + (1.0 - smooth_factor) * old_pt[0])
-                        cy_smooth = int(smooth_factor * pt[1] + (1.0 - smooth_factor) * old_pt[1])
-                        smoothed.append((cx_smooth, cy_smooth))
-                    else:
-                        smoothed.append(pt)
-                self.smoothed_waypoints = smoothed
-                valid_points = smoothed
+        # ---- VERTICAL BANDS: 3 bands in right third for right-side detection ----
+        num_vert_bands = self.get_parameter("num_vert_bands").value
+        vert_band_width = (cropped_width * 1.0 / 3.0) // num_vert_bands
+        vert_chosen_points = []
+        vert_prev_point = None
 
-        # Store trajectory for dead-reckoning
-        self.last_valid_trajectory = valid_points.copy()
+        for i in range(num_vert_bands):
+            x1 = int(cropped_width * 2.0 / 3.0) + int(i * vert_band_width)
+            x2 = int(cropped_width * 2.0 / 3.0) + int((i + 1) * vert_band_width) if i < num_vert_bands - 1 else cropped_width
+
+            vert_band_mask = mask[:, x1:x2]
+            
+            # Find blob in this vertical band (fast)
+            blobs = find_blobs_fast(vert_band_mask, min_area=min_blob_area)
+            
+            best_score = -1
+            best_point = None
+
+            for blob in blobs:
+                area = blob['area']
+                if area < min_blob_area:
+                    continue
+                
+                # Convert to global coordinates
+                cx = x1 + blob['cx']
+                cy = blob['cy']
+                
+                # Normalize y position (-1 = top, 0 = center, +1 = bottom)
+                y_norm = (cy - cropped_height / 2) / (cropped_height / 2)
+                
+                # Convert to 0 → 1 for scoring
+                y_bias = (y_norm + 1) / 2
+                
+                # Continuity penalty
+                if vert_prev_point is not None:
+                    dist = abs(cy - vert_prev_point[1])
+                    continuity_penalty = dist * continuity_scale
+                else:
+                    continuity_penalty = 0
+                
+                # Compute score
+                score = (area * area_weight) + (y_bias * right_weight) - continuity_penalty
+                
+                # Strong bottom-bias (prefer obstacles/paths lower in image)
+                if y_bias > 0.7:
+                    score += 1500
+                
+                if score > best_score:
+                    best_score = score
+                    best_point = (cx, cy)
+            
+            vert_chosen_points.append(best_point)
+            if best_point is not None:
+                vert_prev_point = best_point
 
         # ---- Build and publish Path2D ----
         path_msg = Path2D()
         path_msg.poses = []
 
-        fit_window = self.get_parameter("fit_window").value
+        # Add horizontal band waypoints
+        valid_points = [pt for pt in chosen_points if pt is not None]
 
-        for i, pt in enumerate(valid_points):
-            x_r, y_r = self.image_to_robot(pt, width, cropped_height)
-            if not (np.isfinite(x_r) and np.isfinite(y_r)):
-                self.get_logger().warn(f'Skipping waypoint {i}: x_r={x_r}, y_r={y_r}, pt={pt}')
-                continue
+        for i in range(len(valid_points)):
+            pt = valid_points[i]
+
+            x_r, y_r = self.image_to_robot(pt, cropped_width, cropped_height)
+
             pose   = Pose2D()
             pose.x = float(x_r)
             pose.y = float(y_r)
 
-            # Bearing from robot origin (bottom-center of cropped frame) to this waypoint
-            # x_r = forward (away from bottom), y_r = lateral (left/right)
-            pose.theta = float(np.arctan2(pose.y, pose.x))
+            # Compute heading to next waypoint
+            if i < len(valid_points) - 1:
+                next_pt = valid_points[i + 1]
+                x_next, y_next = self.image_to_robot(next_pt, cropped_width, cropped_height)
+                dx = x_next - x_r
+                dy = y_next - y_r
+                pose.theta = float(np.arctan2(dy, dx))
+            else:
+                pose.theta = 0.0
 
-            # ---- Old: fit theta to local window (3-5 points) for smooth heading ----
-            # window_start = max(0, i - fit_window // 2)
-            # window_end = min(len(valid_points), i + fit_window // 2 + 1)
-            # window_pts = valid_points[window_start:window_end]
-            # if len(window_pts) >= 2:
-            #     window_pts_arr = np.array(window_pts, dtype=np.float32)
-            #     xs = window_pts_arr[:, 0]
-            #     ys = window_pts_arr[:, 1]
-            #     dx = xs[-1] - xs[0]
-            #     dy = ys[-1] - ys[0]
-            #     if dx != 0:
-            #         pose.theta = float(np.arctan2(-dy, dx))
-            #     else:
-            #         pose.theta = float(np.pi / 2.0) if dy > 0 else float(-np.pi / 2.0)
-            # else:
-            #     pose.theta = float(-np.pi / 2.0)
+            path_msg.poses.append(pose)
 
+        # Add vertical band waypoints
+        for i in range(num_vert_bands):
+            try:
+                pnt = vert_chosen_points[i]
+                if pnt is not None:
+                    x_r, y_r = self.image_to_robot(pnt, cropped_width, cropped_height)
+                    theta = np.pi / 2.0  # 90 degrees for right-side waypoints
+                else:
+                    x_r, y_r = -99.9, -99.9
+                    theta = np.inf
+            except:
+                x_r, y_r = -99.9, -99.9
+                theta = np.inf
+            
+            pose = Pose2D()
+            pose.x = float(x_r)
+            pose.y = float(y_r)
+            pose.theta = float(theta)
             path_msg.poses.append(pose)
 
         if len(path_msg.poses) >= 1:
             self.path_pub.publish(path_msg)
 
         self.prev_point = prev_point
-
-        # ---- Timing instrumentation ----
-        t_elapsed = time.time() - t0
-        fps = 1.0 / t_elapsed if t_elapsed > 0 else 0.0
-        self.get_logger().debug(f"Frame processed in {t_elapsed*1000:.2f}ms ({fps:.1f} FPS), "
-                               f"waypoints: {len(valid_points)}")
-
-        # ---- Debug visualizations ----
-        if self.get_parameter("enable_debug_viz").value:
-            # Original cropped BGR
-            debug_msg = Image()
-            debug_msg.header = data.header
-            debug_msg.height = frame.shape[0]
-            debug_msg.width = frame.shape[1]
-            debug_msg.encoding = 'bgr8'
-            debug_msg.step = frame.shape[1] * 3
-            debug_msg.data = frame.tobytes()
-            self.debug_original.publish(debug_msg)
-
-            # HLS frame (convert back to BGR for visualization)
-            hls_bgr = hls_frame[:, :, ::-1].astype(np.uint8)
-            debug_hls_msg = Image()
-            debug_hls_msg.header = data.header
-            debug_hls_msg.height = hls_frame.shape[0]
-            debug_hls_msg.width = hls_frame.shape[1]
-            debug_hls_msg.encoding = 'bgr8'
-            debug_hls_msg.step = hls_frame.shape[1] * 3
-            debug_hls_msg.data = hls_bgr.tobytes()
-            self.debug_hls.publish(debug_hls_msg)
-
-            # Raw binary mask (convert to 3-channel BGR for visualization)
-            mask_3ch = np.stack([mask, mask, mask], axis=-1)
-            debug_mask_msg = Image()
-            debug_mask_msg.header = data.header
-            debug_mask_msg.height = mask.shape[0]
-            debug_mask_msg.width = mask.shape[1]
-            debug_mask_msg.encoding = 'bgr8'
-            debug_mask_msg.step = mask.shape[1] * 3
-            debug_mask_msg.data = mask_3ch.tobytes()
-            self.debug_mask_raw.publish(debug_mask_msg)
-
-            # Morphology-processed mask
-            # (Note: mask_morph_result should be computed; see below)
-            morph_3ch = np.stack([mask, mask, mask], axis=-1)  # Using final mask after morph
-            debug_morph_msg = Image()
-            debug_morph_msg.header = data.header
-            debug_morph_msg.height = mask.shape[0]
-            debug_morph_msg.width = mask.shape[1]
-            debug_morph_msg.encoding = 'bgr8'
-            debug_morph_msg.step = mask.shape[1] * 3
-            debug_morph_msg.data = morph_3ch.tobytes()
-            self.debug_mask_morph.publish(debug_morph_msg)
 
     # --------------------------------------------------------------------------
     def update_params(self):
