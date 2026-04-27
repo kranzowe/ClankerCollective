@@ -409,25 +409,18 @@ class ImageListener(Node):
 
             path_msg.poses.append(pose)
 
-        # Add vertical band waypoints
+        # Add vertical band waypoints (only if detected)
         for i in range(num_vert_bands):
-            try:
-                pnt = vert_chosen_points[i]
-                if pnt is not None:
-                    x_r, y_r = self.image_to_robot(pnt, cropped_width, cropped_height)
-                    theta = np.pi / 2.0  # 90 degrees for right-side waypoints
-                else:
-                    x_r, y_r = -99.9, -99.9
-                    theta = np.inf
-            except:
-                x_r, y_r = -99.9, -99.9
-                theta = np.inf
-            
-            pose = Pose2D()
-            pose.x = float(x_r)
-            pose.y = float(y_r)
-            pose.theta = float(theta)
-            path_msg.poses.append(pose)
+            pnt = vert_chosen_points[i]
+            if pnt is not None:
+                x_r, y_r = self.image_to_robot(pnt, cropped_width, cropped_height)
+                theta = np.pi / 2.0  # 90 degrees for right-side waypoints
+                
+                pose = Pose2D()
+                pose.x = float(x_r)
+                pose.y = float(y_r)
+                pose.theta = float(theta)
+                path_msg.poses.append(pose)
 
         if len(path_msg.poses) >= 1:
             self.path_pub.publish(path_msg)
