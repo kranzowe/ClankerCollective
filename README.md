@@ -87,9 +87,61 @@ ros2 run camera_test_pkg my_color_sub
 `ros2 launch estimation_localization amcl_localization.launch.py`
 
 
+
 # Teleoperation
 
 `ros2 run robo_rover rover_node`
 
 `ros2 run clanker_hardware wasd.py`
 
+
+# C++ image version:
+
+publish_image.py: simulation of picture to ros2 node
+```bash
+python3 publish_image.py
+```
+2.ros2 packages:
+```bash
+colcon build --packages-sekect camera_cpp_pkg
+source ~/install/setup.bash
+ros2 run camera_cpp_pkg image_listener
+```
+for pid_line_follow.py:
+Step 1：tune KP first
+```bash
+PATH_ANGLE_KP = -170.0
+```
+not turn: -200 / turn too much: -120
+
+
+Step 2：tune kD
+```bash
+PATH_ANGLE_KD = -25.0
+```
+wobbling: -35 / too slow: -15
+
+
+Step 3：tune RIGHT_BIAS
+```bash
+RIGHT_BIAS = -180.0
+```
+not enough: -220 / good: -180 / overshoot: -140
+
+Step 4: when to stop turn right
+```bash
+if abs(angle_error) < 0.25:
+```
+
+too early: 0.15 / keep turning: 0.3
+
+Step 5：Tune speed
+```bash
+DEFAULT_SPEED = 1415.0
+```
+
+Step 6: timeout
+```bash
+PATH_TIMEOUT_SEC = 2
+```
+sometimes stop: 3 / response late: 1
