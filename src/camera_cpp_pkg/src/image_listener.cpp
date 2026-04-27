@@ -363,7 +363,7 @@ private:
             geometry_msgs::msg::Pose2D pose;
             pose.x = 0.0;   // matches Python: pose.x = float() = 0.0
             if (best_cy != -1) {
-                pose.y     = (double)best_cy;  // raw pixel y (matches Python)
+                pose.y = (best_cy - orig_height/2.0) / (orig_height/2.0);  // raw pixel y (matches Python)
                 pose.theta = 90.0;
             } else {
                 pose.y     = -99.9;
