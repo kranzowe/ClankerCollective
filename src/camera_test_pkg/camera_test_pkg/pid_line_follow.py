@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1400.0
+DEFAULT_SPEED = 1410.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -56,7 +56,7 @@ class LineFollower(Node):
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
             # Check if all final poses are horizontally aligned (within tolerance)
             final_poses = msg.poses[-4:]
-            y_tolerance = .10  # adjust based on your image scale
+            y_tolerance = .050  # adjust based on your image scale
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
