@@ -410,14 +410,20 @@ class ImageListener(Node):
             path_msg.poses.append(pose)
 
         # Add vertical band waypoints (only if detected)
+                # Always append exactly 3 vertical poses
         for i in range(num_vert_bands):
             pnt = vert_chosen_points[i]
+            pose = Pose2D()
             if pnt is not None:
-                pose = Pose2D()
-                pose.x = float(pnt[0])   # raw pixel x
-                pose.y = float(pnt[1])   # raw pixel y  ← this is what y_tolerance=10 expects
-                pose.theta = 90.0        # match OpenCV version exactly
-                path_msg.poses.append(pose)
+                pose.x = float(pnt[0])   # raw pixel
+                pose.y = float(pnt[1])   # raw pixel
+                pose.theta = 90.0
+            else:
+                pose.x = -1.0
+                pose.y = -1.0
+                pose.theta = np.inf      # marks it invalid
+                
+            path_msg.poses.append(pose)
 
         if len(path_msg.poses) >= 1:
             self.path_pub.publish(path_msg)

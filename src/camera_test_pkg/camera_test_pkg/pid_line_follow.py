@@ -121,7 +121,7 @@ class LineFollower(Node):
             twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
             if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
-                if self.steps_right_turn >15 and self.has_fresh_path:  #want to get into the turn before looking for fresh path
+                if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
                     self.fresh_path_count+=1   
                     if self.fresh_path_count > 6:
                         self.fresh_path_flag = True
@@ -155,8 +155,8 @@ class LineFollower(Node):
 
 
 def main(args=None):
-    print('Waiting 13 seconds before starting...')
-    time.sleep(13)
+    # print('Waiting 13 seconds before starting...')
+    # time.sleep(13)
     print('Starting line follower node!')
     rclpy.init(args=args)
     node = LineFollower()
