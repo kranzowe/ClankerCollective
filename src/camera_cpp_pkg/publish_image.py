@@ -16,7 +16,7 @@ class ImagePublisher(Node):
         self.bridge = CvBridge()
 
         # ⚠️ 改成你的圖片路徑
-        img = cv2.imread('frame_20260424_143758_0.jpg')
+        img = cv2.imread('frame_20260424_143828_0.jpg')
 
         if img is None:
             self.get_logger().error("Image not found!")

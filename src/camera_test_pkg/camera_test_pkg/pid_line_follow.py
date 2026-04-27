@@ -41,10 +41,14 @@ class LineFollower(Node):
         self.prev_path_error_stamp = None
 
         self.right_turn_detected = False
-        self.steps_right_turn = 0
-        self.fresh_path_flag = False
-        self.fresh_path_count = 0 
+       # self.steps_right_turn = 0
+       # self.fresh_path_flag = False
+       # self.fresh_path_count = 0 
 
+    def angle_diff(self, a, b):
+        d = a - b
+        return (d + np.pi) % (2 * np.pi) - np.pi
+    
     def path_callback(self, msg: Path2D):
         thetas = []
 
@@ -61,10 +65,10 @@ class LineFollower(Node):
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
             if y_aligned:
-                if not self.right_turn_detected:
+                if not self.right_turn_detected and  not self.right_turn_detected:
                     self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
                     self.right_turn_detected = True
-                    self.steps_right_turn = 0
+                 #   self.steps_right_turn = 0
                 thetas.append(np.pi / 2)  # bias it rightwards
             else:
                 self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
@@ -77,8 +81,7 @@ class LineFollower(Node):
         thetas = np.array(thetas, dtype=np.float32)
 
         # Circular mean of waypoint headings
-        self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
-                                           np.mean(np.cos(thetas))))
+        self.path_angle = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
         self.path_angle_stamp = time.monotonic()
 
 
@@ -93,13 +96,16 @@ class LineFollower(Node):
 
     def compute_path_turn(self):
         now = time.monotonic()
-        error = self.path_angle
+        error = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
 
         if self.prev_path_error_stamp is None:
-            derivative = 0.0 #hi
+            derivative = 0.0
         else:
             dt = now - self.prev_path_error_stamp
-            derivative = (error - self.prev_path_error) / dt if dt > 1e-3 else 0.0
+            if dt > 1e-3:
+                derivative = self.angle_diff(error, self.prev_path_error) / dt
+            else:
+                derivative = 0.0
 
         self.prev_path_error = error
         self.prev_path_error_stamp = now
@@ -114,28 +120,35 @@ class LineFollower(Node):
 
     def control_loop(self):
         twist = Twist()
-        
-        if self.right_turn_detected:
-            self.get_logger().info('TURN TURN TURN TURN TURN')
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
-            if self.steps_right_turn < 25 and not self.fresh_path_flag:
-                self.steps_right_turn += 1
-                if self.steps_right_turn >15 and self.has_fresh_path:  #want to get into the turn before looking for fresh path
-                    self.fresh_path_count+=1   
-                    if self.fresh_path_count > 6:
-                        self.fresh_path_flag = True
-            else:
-                self.right_turn_detected = False
-                self.steps_right_turn = 0
-                self.fresh_path_flag = False
-                self.fresh_path_count = 0
 
+        # ------------------ RIGHT TURN MODE ------------------
+        if self.right_turn_detected:
+
+            if self.has_fresh_path():
+                turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
+
+                RIGHT_BIAS = -180.0   # tune this bias to adjust how aggressively it turns right during the turn maneuver
+
+                twist.linear.x = DEFAULT_SPEED
+                twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
+
+                # if the path angle error is small enough, consider the right turn complete
+                if abs(angle_error) < 0.18:
+                    self.get_logger().info('Right turn complete')
+                    self.right_turn_detected = False
+
+            else:
+                # if no fresh path, just keep turning right at a fixed rate (with bias)
+                twist.linear.x = DEFAULT_SPEED
+                twist.angular.z = TURN_BIAS - 300.0
+
+        # ------------------ NORMAL PATH FOLLOW ------------------
         elif self.has_fresh_path():
+
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.linear.x = DEFAULT_SPEED
             twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
@@ -144,8 +157,9 @@ class LineFollower(Node):
                 f'linear.x: {twist.linear.x:.3f} | '
                 f'angular.z: {twist.angular.z:.3f}'
             )
+
+        # ------------------ NO PATH ------------------
         else:
-            # No fresh path: stop and wait
             self.prev_path_error_stamp = None
             twist.linear.x = 1500.0
             twist.angular.z = TURN_BIAS

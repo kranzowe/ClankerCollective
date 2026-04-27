@@ -321,8 +321,13 @@ private:
             geometry_msgs::msg::Pose2D pose;
             pose.x = (double)xr;
             pose.y = (double)yr;
-            // theta: atan2 of current robot point (matches Python — next_pt computed but unused)
-            pose.theta = (i < valid_pts.size() - 1) ? std::atan2((double)yr, (double)xr) : 0.0;
+            if (i < valid_pts.size() - 1) {
+                auto [nx, ny] = valid_pts[i + 1];
+                auto [xr2, yr2] = image_to_robot(nx, ny, width, orig_height);
+                pose.theta = std::atan2((double)(yr2 - yr), (double)(xr2 - xr));
+            } else {
+                pose.theta = 0.0;
+            }
             path.poses.push_back(pose);
         }
 
