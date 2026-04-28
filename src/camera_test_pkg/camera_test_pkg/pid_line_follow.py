@@ -58,9 +58,10 @@ class LineFollower(Node):
                 thetas.append(pose.theta)
         
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
+            self.get_logger().info('see valid points in our vertical bands')
             # Check if all final poses are horizontally aligned (within tolerance)
             final_poses = msg.poses[-3:]
-            y_tolerance = 0.0  # adjust based on your image scale
+            y_tolerance = 10  # adjust based on your image scale
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
