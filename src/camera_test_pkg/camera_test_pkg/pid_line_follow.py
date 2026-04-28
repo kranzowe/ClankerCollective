@@ -14,12 +14,12 @@ CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 10
-PATH_ANGLE_KP = -140.0 # 
+PATH_ANGLE_KP = -160.0 # 
 PATH_ANGLE_KD = -10.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
 MIN_TURN = 30.0
-TURN_BIAS = 1520.0
+TURN_BIAS = 1480.0
 
 class LineFollower(Node):
     def __init__(self):
