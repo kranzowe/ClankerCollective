@@ -7,19 +7,19 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1400.0
+DEFAULT_SPEED = 1415.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 10
-PATH_ANGLE_KP = -120.0 # 
-PATH_ANGLE_KD = -10.0
+PATH_ANGLE_KP = -160.0 # 
+PATH_ANGLE_KD = -15.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
-MIN_TURN = 60.0
-TURN_BIAS = 1520.0
+MIN_TURN = 30.0
+TURN_BIAS = 1480.0
 
 class LineFollower(Node):
     def __init__(self):
@@ -154,7 +154,7 @@ class LineFollower(Node):
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
+            twist.angular.z =  -300.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
             if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
                 if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
