@@ -14,7 +14,7 @@ CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 10
-PATH_ANGLE_KP = -10.0
+PATH_ANGLE_KP = -50.0
 PATH_ANGLE_KD = 0.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
@@ -132,10 +132,12 @@ class LineFollower(Node):
         self.prev_path_error_stamp = now
 
         turn = (PATH_ANGLE_KP * error + PATH_ANGLE_KD * derivative)
-        if turn >= 0.0:
+        if turn > 0.0:
             turn += MIN_TURN
-        else:
+        elif turn < 0.0:
             turn -= MIN_TURN
+        else:
+            turn = 0.0
 
         turn = float(np.clip(turn, MAX_RIGHT_TURN, MAX_LEFT_TURN))
         
