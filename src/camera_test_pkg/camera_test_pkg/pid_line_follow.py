@@ -7,18 +7,18 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1400.0
+DEFAULT_SPEED = 1415.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 10
-PATH_ANGLE_KP = -120.0 # 
+PATH_ANGLE_KP = -140.0 # 
 PATH_ANGLE_KD = -10.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
-MIN_TURN = 60.0
+MIN_TURN = 30.0
 TURN_BIAS = 1520.0
 
 class LineFollower(Node):
