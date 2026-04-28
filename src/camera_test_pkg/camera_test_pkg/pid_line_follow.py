@@ -46,6 +46,9 @@ class LineFollower(Node):
         self.fresh_path_flag = False
         self.fresh_path_count = 0 
 
+        # Debug logging throttle
+        self._last_fresh_status_log = 0.0
+
     def path_callback(self, msg: Path2D):
         thetas = []
 
@@ -54,23 +57,30 @@ class LineFollower(Node):
             if np.isfinite(pose.theta):
                 thetas.append(pose.theta)
         
-        if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
-            # Check if all final poses are horizontally aligned (within tolerance)
-            final_poses = msg.poses[-3:]
-            y_tolerance = 0.0  # adjust based on your image scale
-            first_y = final_poses[0].y
-            y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
+        # if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
+        #     # Check if all final poses are horizontally aligned (within tolerance)
+        #     final_poses = msg.poses[-3:]
+        #     y_tolerance = 0.0  # adjust based on your image scale
+        #     first_y = final_poses[0].y
+        #     y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
-            if y_aligned:
-                if not self.right_turn_detected:
-                    self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
-                    self.right_turn_detected = True
-                    self.steps_right_turn = 0
-                thetas.append(np.pi / 2)  # bias it rightwards
-            else:
-                self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
+        #     if y_aligned:
+        #         if not self.right_turn_detected:
+        #             self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
+        #             self.right_turn_detected = True
+        #             self.steps_right_turn = 0
+        #         thetas.append(np.pi / 2)  # bias it rightwards
+        #     else:
+        #         self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
 
         if not thetas:
+            now = time.monotonic()
+            prev_age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else None
+            self.get_logger().warn(
+                f'[path_callback] No finite theta values. poses={len(msg.poses)} | '
+                f'prev_path_age={prev_age:.3f}s' if prev_age is not None
+                else f'[path_callback] No finite theta values. poses={len(msg.poses)} | prev_path_age=None'
+            )
             self.path_angle = None
             self.path_angle_stamp = None
             return
@@ -81,16 +91,32 @@ class LineFollower(Node):
         self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
                                            np.mean(np.cos(thetas))))
         self.path_angle_stamp = time.monotonic()
-
-
-
+        self.get_logger().info(
+            f'[path_callback] finite_thetas={len(thetas)} | '
+            f'path_angle={np.rad2deg(self.path_angle):.2f} deg'
+        )
 
     def has_fresh_path(self):
-        return (
+        now = time.monotonic()
+        age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else float('inf')
+
+        fresh = (
             self.path_angle is not None and
             self.path_angle_stamp is not None and
-            (time.monotonic() - self.path_angle_stamp) < PATH_TIMEOUT_SEC
+            age < PATH_TIMEOUT_SEC
         )
+
+        # Print periodically so logs are readable
+        if (now - self._last_fresh_status_log) > 0.5:
+            self.get_logger().info(
+                f'[has_fresh_path] fresh={fresh} | '
+                f'path_angle_is_none={self.path_angle is None} | '
+                f'path_stamp_is_none={self.path_angle_stamp is None} | '
+                f'age={age:.3f}s | timeout={PATH_TIMEOUT_SEC}s'
+            )
+            self._last_fresh_status_log = now
+
+        return fresh
 
     def compute_path_turn(self):
         now = time.monotonic()
@@ -153,10 +179,17 @@ class LineFollower(Node):
             )
         else:
             # No fresh path: stop and wait
+            now = time.monotonic()
+            age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else float('inf')
             self.prev_path_error_stamp = None
             twist.linear.x = 1500.0
             twist.angular.z = TURN_BIAS
-            self.get_logger().info('No fresh path received, stopping.')
+            self.get_logger().warn(
+                f'[control_loop] No fresh path -> fallback command. '
+                f'path_angle_is_none={self.path_angle is None} | '
+                f'path_stamp_is_none={self.path_angle_stamp is None} | '
+                f'age={age:.3f}s'
+            )
 
         self.cmd_pub.publish(twist)
 
