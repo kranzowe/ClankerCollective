@@ -25,8 +25,8 @@ TURN_BIAS = 1520.0
 #                   beta = p * lambda * |s| + b * (angular_rate)^2 + b0
 # Smoothed sign uses a boundary layer of phi*lambda to reduce chatter.
 SMC_TARGET_ANGLE = 0.0    # desired heading error (rad). 0 = drive straight along path.
-SMC_LAMBDA       = 15.0   # slope of the sliding surface (weights position error vs rate)
-SMC_P            = 5.0   # proportional-like gain on |s|
+SMC_LAMBDA       = 12.0   # slope of the sliding surface (weights position error vs rate)
+SMC_P            = 7.0   # proportional-like gain on |s|
 SMC_PHI          = .50    # boundary layer width multiplier (phi*lambda) for smoothed sign
 SMC_B            = 0.01    # damping coefficient on angular_rate^2
 SMC_B0           = 50.0   # baseline switching gain
