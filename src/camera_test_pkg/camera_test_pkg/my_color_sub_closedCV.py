@@ -147,6 +147,9 @@ class ImageListener(Node):
 
         self.prev_point = None
 
+        # self.debug_mask_pub = self.create_publisher(Image, '/debug/mask', 10)
+        # self.debug_frame_pub = self.create_publisher(Image, '/debug/frame', 10)
+
         # --- ROS Image → NumPy array bridge (manual, no CvBridge needed) ---
         # We handle decoding directly from sensor_msgs/Image raw data.
 
@@ -165,7 +168,7 @@ class ImageListener(Node):
         self.declare_parameter("morph_ksize", 3)     # morphology kernel size - smaller
         self.declare_parameter("min_blob_area", 45)  # minimum blob area
         self.declare_parameter("num_bands", 6)       # reduced from 8 for Pi speed
-        self.declare_parameter("num_vert_bands", 4)  # MUST match controller expectation of trailing 4
+        self.declare_parameter("num_vert_bands", 3)  # reduced from 4 for Pi speed
         self.declare_parameter("downsample_factor", 2)  # CRITICAL: downsample 2-4x for Pi (1=none, 2=2x, 4=4x)
 
         # --- Scoring parameters (same as OpenCV version) ---
@@ -178,7 +181,6 @@ class ImageListener(Node):
 
         self.hls_lower = np.zeros(3, dtype=np.float32)
         self.hls_upper = np.zeros(3, dtype=np.float32)
-        self._last_pub_debug_log = 0.0
 
         self.get_logger().info("ImageListener node started (8 horizontal + 4 vertical bands).")
 
@@ -262,6 +264,8 @@ class ImageListener(Node):
             if morph_ksize < 3:
                 morph_ksize = 3
             mask = morphology_open_close(mask, ksize=morph_ksize)
+        
+        
 
         # ---- HORIZONTAL BANDS: 6 bands for forward path planning ----
         num_bands  = self.get_parameter("num_bands").value
@@ -410,10 +414,10 @@ class ImageListener(Node):
 
             path_msg.poses.append(pose)
 
-        # Add vertical band waypoints (controller expects EXACTLY 4 trailing aux poses)
-        expected_trailing_aux = 4
-        for i in range(expected_trailing_aux):
-            pnt = vert_chosen_points[i] if i < len(vert_chosen_points) else None
+        # Add vertical band waypoints (only if detected)
+                # Always append exactly 3 vertical poses
+        for i in range(num_vert_bands):
+            pnt = vert_chosen_points[i]
             pose = Pose2D()
             if pnt is not None:
                 pose.x = float(pnt[0])   # raw pixel
@@ -423,23 +427,11 @@ class ImageListener(Node):
                 pose.x = -1.0
                 pose.y = -1.0
                 pose.theta = np.inf      # marks it invalid
+
             path_msg.poses.append(pose)
 
         if len(path_msg.poses) >= 1:
             self.path_pub.publish(path_msg)
-
-            now = time.monotonic()
-            if (now - self._last_pub_debug_log) > 0.5:
-                finite_theta_total = sum(np.isfinite(p.theta) for p in path_msg.poses)
-                finite_theta_steer = sum(np.isfinite(p.theta) for p in path_msg.poses[0:-4]) if len(path_msg.poses) >= 4 else 0
-                self.get_logger().info(
-                    f"[path_pub] total_poses={len(path_msg.poses)} | "
-                    f"horiz_valid={len(valid_points)} | "
-                    f"vert_generated={len(vert_chosen_points)} | "
-                    f"finite_theta_total={finite_theta_total} | "
-                    f"finite_theta_for_control(poses[0:-4])={finite_theta_steer}"
-                )
-                self._last_pub_debug_log = now
 
         self.prev_point = prev_point
 
