@@ -33,9 +33,9 @@ def generate_launch_description():
     )
 
     color_node = Node(
-        package='camera_test_pkg',
-        executable='my_color_sub_opencv',
-        name='color_tracker',
+        package='camera_cpp_pkg',
+        executable='image_listener',
+        name='image_listener',
         output='screen'
     )
 
