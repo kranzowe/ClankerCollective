@@ -334,14 +334,13 @@ class ImageListener(Node):
         #     cv2.imwrite(filename.replace("frame", "mask"), mask)
         #     self.last_save_time = now
         #     count +=1
-        # try:
-        #     # cv2.imshow("Processed Image", frame)
-        #     # cv2.imshow("Mask", mask)
-        #     # cv2.waitKey(1)
-        #     pass
         # except cv2.error:
         #     pass
-
+        
+        cv2.imshow("Processed Image", frame)
+        cv2.imshow("Mask", mask)
+        cv2.waitKey(1)
+        
 
     # ------------------ Parameter Update ------------------
     def update_params(self):

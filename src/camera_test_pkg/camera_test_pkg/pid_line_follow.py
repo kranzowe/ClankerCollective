@@ -88,8 +88,7 @@ class LineFollower(Node):
         thetas = np.array(thetas, dtype=np.float32)
 
         # Circular mean of waypoint headings
-        self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
-                                           np.mean(np.cos(thetas))))
+        self.path_angle = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
         self.path_angle_stamp = time.monotonic()
         self.get_logger().info(
             f'[path_callback] finite_thetas={len(thetas)} | '
@@ -120,13 +119,16 @@ class LineFollower(Node):
 
     def compute_path_turn(self):
         now = time.monotonic()
-        error = self.path_angle
+        error = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
 
         if self.prev_path_error_stamp is None:
-            derivative = 0.0 #hi
+            derivative = 0.0
         else:
             dt = now - self.prev_path_error_stamp
-            derivative = (error - self.prev_path_error) / dt if dt > 1e-3 else 0.0
+            if dt > 1e-3:
+                derivative = self.angle_diff(error, self.prev_path_error) / dt
+            else:
+                derivative = 0.0
 
         self.prev_path_error = error
         self.prev_path_error_stamp = now
@@ -149,7 +151,8 @@ class LineFollower(Node):
 
     def control_loop(self):
         twist = Twist()
-        
+
+        # ------------------ RIGHT TURN MODE ------------------
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED #* speed_scale
@@ -161,16 +164,17 @@ class LineFollower(Node):
                     if self.fresh_path_count > 6:
                         self.fresh_path_flag = True
             else:
-                self.right_turn_detected = False
-                self.steps_right_turn = 0
-                self.fresh_path_flag = False
-                self.fresh_path_count = 0
+                # if no fresh path, just keep turning right at a fixed rate (with bias)
+                twist.linear.x = DEFAULT_SPEED
+                twist.angular.z = TURN_BIAS - 300.0
 
+        # ------------------ NORMAL PATH FOLLOW ------------------
         elif self.has_fresh_path():
+
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.linear.x = DEFAULT_SPEED
             twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
@@ -179,6 +183,8 @@ class LineFollower(Node):
                 f'linear.x: {twist.linear.x:.3f} | '
                 f'angular.z: {twist.angular.z:.3f}'
             )
+
+        # ------------------ NO PATH ------------------
         else:
             # No fresh path: stop and wait
             now = time.monotonic()
