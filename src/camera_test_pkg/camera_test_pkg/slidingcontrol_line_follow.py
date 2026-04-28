@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1400.0
+DEFAULT_SPEED = 1410.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -26,7 +26,7 @@ TURN_BIAS = 1520.0
 # Smoothed sign uses a boundary layer of phi*lambda to reduce chatter.
 SMC_TARGET_ANGLE = 0.0    # desired heading error (rad). 0 = drive straight along path.
 SMC_LAMBDA       = 0.15   # slope of the sliding surface (weights position error vs rate)
-SMC_P            = 5.0   # proportional-like gain on |s|
+SMC_P            = 1.0   # proportional-like gain on |s|
 SMC_PHI          = 3.0    # boundary layer width multiplier (phi*lambda) for smoothed sign
 SMC_B            = 0.0    # damping coefficient on angular_rate^2
 SMC_B0           = 90.0   # baseline switching gain
