@@ -32,13 +32,13 @@ class LineFollower(Node):
             10
         )
 
+        # FIX 1: give the stop sign subscription its own callback
         self.stop_sub = self.create_subscription(
             Bool,
             '/stop_sign_stop',
-            self.path_callback,
+            self.stop_sign_callback,   # <-- was incorrectly pointing to path_callback
             10
         )
-
 
         self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.get_logger().info('Line follower node initialized with line-path steering...')
@@ -52,21 +52,26 @@ class LineFollower(Node):
         self.right_turn_detected = False
         self.steps_right_turn = 0
         self.fresh_path_flag = False
-        self.fresh_path_count = 0 
-        self.stop_flag = False
+        self.fresh_path_count = 0
+
+        # FIX 2: track the stop state as a plain bool, not the subscription object
+        self.stop_flag = False       # True while we are sitting at a stop sign
+        self.stop_sign_active = False  # mirrors the latest /stop_sign_stop message
+
+    # FIX 3: dedicated callback that unpacks the Bool message correctly
+    def stop_sign_callback(self, msg: Bool):
+        self.stop_sign_active = msg.data
 
     def path_callback(self, msg: Path2D):
         thetas = []
 
         for pose in msg.poses[0:-4]:
-
             if np.isfinite(pose.theta):
                 thetas.append(pose.theta)
         
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
-            # Check if all final poses are horizontally aligned (within tolerance)
             final_poses = msg.poses[-4:]
-            y_tolerance = .1  # adjust based on your image scale
+            y_tolerance = .1
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
@@ -75,7 +80,7 @@ class LineFollower(Node):
                     self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
                     self.right_turn_detected = True
                     self.steps_right_turn = 0
-                thetas.append(np.pi / 2)  # bias it rightwards
+                thetas.append(np.pi / 2)
             else:
                 self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
 
@@ -86,12 +91,9 @@ class LineFollower(Node):
 
         thetas = np.array(thetas, dtype=np.float32)
 
-        # Circular mean of waypoint headings
         self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
                                            np.mean(np.cos(thetas))))
         self.path_angle_stamp = time.monotonic()
-
-
 
 
     def has_fresh_path(self):
@@ -106,7 +108,7 @@ class LineFollower(Node):
         error = self.path_angle
 
         if self.prev_path_error_stamp is None:
-            derivative = 0.0 #hi
+            derivative = 0.0
         else:
             dt = now - self.prev_path_error_stamp
             derivative = (error - self.prev_path_error) / dt if dt > 1e-3 else 0.0
@@ -119,32 +121,40 @@ class LineFollower(Node):
         return turn, error, derivative
 
     def scan_callback(self, msg):
-        # Kept for potential future use / front obstacle detection
         pass
 
     def control_loop(self):
         twist = Twist()
 
-        #------We do not see a stop sign------
-        if self.stop_sub == False:
+        # FIX 4: check self.stop_sign_active (the bool value), not the subscription object
+        if self.stop_sign_active and not self.stop_flag:
+            # Stop sign just became active — hold position
+            self.get_logger().info('Stop sign detected! Holding for stop duration...')
+            twist.linear.x = 1500.0
+            twist.angular.z = TURN_BIAS
+            self.cmd_pub.publish(twist)
+            self.stop_flag = True
+            return
+
+        if not self.stop_sign_active:
+            # Stop sign cleared — allow driving again
             self.stop_flag = False
 
-
-        #------we see a stop sign -------
-        if self.stop_sub == True and self.stop_flag == False:
-            twist.linear.x = 1500
-            time.sleep(2)
-            self.stop_flag = True
-
+        # If we are still in a stop-sign hold, wait it out
+        if self.stop_flag:
+            twist.linear.x = 1500.0
+            twist.angular.z = TURN_BIAS
+            self.cmd_pub.publish(twist)
+            return
 
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
-            twist.angular.z =  -250.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
+            twist.linear.x = DEFAULT_SPEED
+            twist.angular.z = -250.0 + TURN_BIAS
             if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
-                if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
-                    self.fresh_path_count+=1   
+                if self.steps_right_turn > 15 and self.has_fresh_path():
+                    self.fresh_path_count += 1
                     if self.fresh_path_count > 6:
                         self.fresh_path_flag = True
             else:
@@ -157,7 +167,7 @@ class LineFollower(Node):
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.linear.x = DEFAULT_SPEED
             twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
@@ -167,7 +177,6 @@ class LineFollower(Node):
                 f'angular.z: {twist.angular.z:.3f}'
             )
         else:
-            # No fresh path: stop and wait
             self.prev_path_error_stamp = None
             twist.linear.x = 1500.0
             twist.angular.z = TURN_BIAS
@@ -177,8 +186,6 @@ class LineFollower(Node):
 
 
 def main(args=None):
-    # print('Waiting 13 seconds before starting...')
-    # time.sleep(13)
     print('Starting line follower node!')
     rclpy.init(args=args)
     node = LineFollower()
@@ -193,4 +200,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-    #nick
