@@ -21,6 +21,14 @@ MAX_LEFT_TURN = 800.0
 MAX_RIGHT_TURN = -1000.0
 TURN_BIAS = 1450.0
 
+STOP_DURATION_SEC = 2.0   # how long to hold at the stop sign
+
+# Stop sign states
+STOP_STATE_READY    = 'READY'      # watching for a stop sign
+STOP_STATE_STOPPING = 'STOPPING'   # saw one, timing 2 seconds
+STOP_STATE_COOLDOWN = 'COOLDOWN'   # done, ignoring sign until it clears
+
+
 class LineFollower(Node):
     def __init__(self):
         super().__init__('line_follower_node')
@@ -32,11 +40,10 @@ class LineFollower(Node):
             10
         )
 
-        # FIX 1: give the stop sign subscription its own callback
         self.stop_sub = self.create_subscription(
             Bool,
             '/stop_sign_stop',
-            self.stop_sign_callback,   # <-- was incorrectly pointing to path_callback
+            self.stop_sign_callback,
             10
         )
 
@@ -54,27 +61,29 @@ class LineFollower(Node):
         self.fresh_path_flag = False
         self.fresh_path_count = 0
 
-        # FIX 2: track the stop state as a plain bool, not the subscription object
-        self.stop_flag = False       # True while we are sitting at a stop sign
-        self.stop_sign_active = False  # mirrors the latest /stop_sign_stop message
+        # Stop sign state machine
+        self.stop_state = STOP_STATE_READY
+        self.stop_start_time = None    # when we entered STOPPING
+        self.stop_sign_active = False  # latest value from /stop_sign_stop
 
-    # FIX 3: dedicated callback that unpacks the Bool message correctly
+    # ------------------ Stop Sign Callback ------------------
     def stop_sign_callback(self, msg: Bool):
         self.stop_sign_active = msg.data
 
+    # ------------------ Path Callback ------------------
     def path_callback(self, msg: Path2D):
         thetas = []
 
         for pose in msg.poses[0:-4]:
             if np.isfinite(pose.theta):
                 thetas.append(pose.theta)
-        
+
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
             final_poses = msg.poses[-4:]
             y_tolerance = .1
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
-            
+
             if y_aligned:
                 if not self.right_turn_detected:
                     self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
@@ -82,7 +91,10 @@ class LineFollower(Node):
                     self.steps_right_turn = 0
                 thetas.append(np.pi / 2)
             else:
-                self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
+                self.get_logger().info(
+                    f'Not horizontal: y spread = '
+                    f'{max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}'
+                )
 
         if not thetas:
             self.path_angle = None
@@ -90,12 +102,11 @@ class LineFollower(Node):
             return
 
         thetas = np.array(thetas, dtype=np.float32)
-
         self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
                                            np.mean(np.cos(thetas))))
         self.path_angle_stamp = time.monotonic()
 
-
+    # ------------------ Helpers ------------------
     def has_fresh_path(self):
         return (
             self.path_angle is not None and
@@ -120,33 +131,49 @@ class LineFollower(Node):
         turn = float(np.clip(turn, MAX_RIGHT_TURN, MAX_LEFT_TURN))
         return turn, error, derivative
 
+    def hold_position(self, twist):
+        twist.linear.x = 1500.0
+        twist.angular.z = TURN_BIAS
+        self.cmd_pub.publish(twist)
+
     def scan_callback(self, msg):
         pass
 
+    # ------------------ Control Loop ------------------
     def control_loop(self):
         twist = Twist()
+        now = time.monotonic()
 
-        # FIX 4: check self.stop_sign_active (the bool value), not the subscription object
-        if self.stop_sign_active and not self.stop_flag:
-            # Stop sign just became active — hold position
-            self.get_logger().info('Stop sign detected! Holding for stop duration...')
-            twist.linear.x = 1500.0
-            twist.angular.z = TURN_BIAS
-            self.cmd_pub.publish(twist)
-            self.stop_flag = True
-            return
+        # ---- Stop sign state machine (runs first, highest priority) ----
+        if self.stop_state == STOP_STATE_READY:
+            if self.stop_sign_active:
+                # Just saw a stop sign — begin the stop
+                self.get_logger().info('Stop sign! Stopping for 2 seconds.')
+                self.stop_state = STOP_STATE_STOPPING
+                self.stop_start_time = now
+                self.hold_position(twist)
+                return
 
-        if not self.stop_sign_active:
-            # Stop sign cleared — allow driving again
-            self.stop_flag = False
+        elif self.stop_state == STOP_STATE_STOPPING:
+            if now - self.stop_start_time < STOP_DURATION_SEC:
+                # Still within the 2-second hold
+                self.hold_position(twist)
+                return
+            else:
+                # 2 seconds are up — move to cooldown
+                self.get_logger().info('Stop complete. Entering cooldown.')
+                self.stop_state = STOP_STATE_COOLDOWN
 
-        # If we are still in a stop-sign hold, wait it out
-        if self.stop_flag:
-            twist.linear.x = 1500.0
-            twist.angular.z = TURN_BIAS
-            self.cmd_pub.publish(twist)
-            return
+        elif self.stop_state == STOP_STATE_COOLDOWN:
+            if self.stop_sign_active:
+                # Sign still visible — keep ignoring it, fall through to drive normally
+                pass
+            else:
+                # Sign has cleared — ready to respond to the next one
+                self.get_logger().info('Stop sign cleared. Ready for next stop.')
+                self.stop_state = STOP_STATE_READY
 
+        # ---- Normal driving logic ----
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED
