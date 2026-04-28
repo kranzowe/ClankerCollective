@@ -127,9 +127,14 @@ class ImageListener(Node):
                 stop_msg = Bool()
                 stop_msg.data = True
                 self.stop_pub.publish(stop_msg)
-                self.get_logger().info("Stop sign detected!")
-
+                self.get_logger().info("Stop sign detected :)")
+            else:
+                stop_msg = Bool()
+                stop_msg.data = False
+                self.stop_pub.publish(stop_msg)
+                self.get_logger().info("No stop sign :(")
         # ---- CROP TOP REGION OUT ----
+
         crop_ratio = 0.75
         start_y = int(height * (1 - crop_ratio))
         frame = frame[start_y:height, :]
