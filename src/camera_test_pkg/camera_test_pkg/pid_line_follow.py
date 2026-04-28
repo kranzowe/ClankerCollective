@@ -19,7 +19,7 @@ PATH_ANGLE_KD = 0.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
 MIN_TURN = 80.0
-TURN_BIAS = 1450.0
+TURN_BIAS = 1500.0
 
 class LineFollower(Node):
     def __init__(self):
