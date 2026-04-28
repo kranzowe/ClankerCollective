@@ -88,7 +88,8 @@ class LineFollower(Node):
         thetas = np.array(thetas, dtype=np.float32)
 
         # Circular mean of waypoint headings
-        self.path_angle = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
+        self.path_angle = float(np.arctan2(np.mean(np.sin(thetas)),
+                                           np.mean(np.cos(thetas))))
         self.path_angle_stamp = time.monotonic()
         self.get_logger().info(
             f'[path_callback] finite_thetas={len(thetas)} | '

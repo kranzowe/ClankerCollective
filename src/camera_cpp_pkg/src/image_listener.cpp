@@ -329,16 +329,14 @@ private:
 
         for (size_t i = 0; i < valid_pts.size(); i++) {
             auto [px, py] = valid_pts[i];
-            // use orig_height for normalization — matches Python (height stored before crop)
             auto [xr, yr] = image_to_robot(px, py, width, orig_height);
 
             geometry_msgs::msg::Pose2D pose;
             pose.x = (double)xr;
             pose.y = (double)yr;
             if (i < valid_pts.size() - 1) {
-                auto [nx, ny] = valid_pts[i + 1];
-                auto [xr2, yr2] = image_to_robot(nx, ny, width, orig_height);
-                pose.theta = std::atan2((double)(yr2 - yr), (double)(xr2 - xr));
+                // Match my_color_sub_opencv.py behavior exactly
+                pose.theta = std::atan2((double)yr, (double)xr);
             } else {
                 pose.theta = 0.0;
             }
@@ -380,9 +378,10 @@ private:
             }
 
             geometry_msgs::msg::Pose2D pose;
-            pose.x = 0.0;   // matches Python: pose.x = float() = 0.0
+            pose.x = 0.0;
             if (best_cy != -1) {
-                pose.y = (best_cy - orig_height/2.0) / (orig_height/2.0);  // raw pixel y (matches Python)
+                // Match Python OpenCV publisher (raw cy-like value)
+                pose.y = (double)best_cy;
                 pose.theta = 90.0;
             } else {
                 pose.y     = -99.9;
