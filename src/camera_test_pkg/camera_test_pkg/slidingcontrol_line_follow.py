@@ -27,7 +27,7 @@ TURN_BIAS = 1520.0
 SMC_TARGET_ANGLE = 0.0    # desired heading error (rad). 0 = drive straight along path.
 SMC_LAMBDA       = 15.0   # slope of the sliding surface (weights position error vs rate)
 SMC_P            = 7.0   # proportional-like gain on |s|
-SMC_PHI          = 0.0    # boundary layer width multiplier (phi*lambda) for smoothed sign
+SMC_PHI          = 3.0    # boundary layer width multiplier (phi*lambda) for smoothed sign
 SMC_B            = 0.01    # damping coefficient on angular_rate^2
 SMC_B0           = 50.0   # baseline switching gain
 SMC_OUTPUT_SIGN  = -1.0   # matches PATH_ANGLE_KP sign convention from the PID version
