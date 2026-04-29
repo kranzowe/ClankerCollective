@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+import time
+import numpy as np
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
+from nav_2d_msgs.msg import Path2D
+
+DEFAULT_SPEED = 1415.0
+
+DEFAULT_TURN_RATE = 7.0
+CENTER = 0.7
+
+# Path-follow control
+PATH_TIMEOUT_SEC = 10
+MAX_LEFT_TURN = 500.0
+MAX_RIGHT_TURN = -500.0
+MIN_TURN = 0.0
+TURN_BIAS = 1520.0
+
+# ---------- Sliding Mode Control gains (replaces PID) ----------
+# Sliding surface:  s = lambda * (target_angle - path_angle) + angular_rate
+# Control law:      u = -sign(s) * beta - angular_rate
+#                   beta = p * lambda * |s| + b * (angular_rate)^2 + b0
+# Smoothed sign uses a boundary layer of phi*lambda to reduce chatter.
+SMC_TARGET_ANGLE = 0.0    # desired heading error (rad). 0 = drive straight along path.
+SMC_LAMBDA       = 12.0   # slope of the sliding surface (weights position error vs rate)
+SMC_P            = 7.0   # proportional-like gain on |s|
+SMC_PHI          = .50    # boundary layer width multiplier (phi*lambda) for smoothed sign
+SMC_B            = 0.01    # damping coefficient on angular_rate^2
+SMC_B0           = 30.0   # baseline switching gain
+SMC_OUTPUT_SIGN  = -1.0   # matches PATH_ANGLE_KP sign convention from the PID version
+
+class LineFollower(Node):
+    def __init__(self):
+        super().__init__('line_follower_node')
+
+        self.path_sub = self.create_subscription(
+            Path2D,
+            '/line_path',
+            self.path_callback,
+            10
+        )
+
+        self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.get_logger().info('Line follower node initialized with SLIDING MODE line-path steering...')
+
+        # Latest visual path steering state
+        self.path_angle = None
+        self.path_angle_stamp = None
+
+        # SMC state: previous angle + time used to estimate angular rate (derivative of path_angle)
+        self.prev_path_angle = None
+        self.prev_path_angle_stamp = None
+        self.instant_angular_rate = 0.0
+
+        self.right_turn_detected = False
+        self.steps_right_turn = 0
+        self.fresh_path_flag = False
+        self.fresh_path_count = 0
+
+        # Debug logging throttle
+        self._last_fresh_status_log = 0.0
+
+    def path_callback(self, msg: Path2D):
+        thetas = []
+
+        for pose in msg.poses[0:-4]:
+
+            if np.isfinite(pose.theta):
+                thetas.append(pose.theta)
+
+        if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
+            # Check if all final poses are horizontally aligned (within tolerance)
+            final_poses = msg.poses[-3:]
+            y_tolerance = 0.0  # adjust based on your image scale
+            first_y = final_poses[0].y
+            y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
+
+            if y_aligned:
+                if not self.right_turn_detected:
+                    self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
+                    self.right_turn_detected = True
+                    self.steps_right_turn = 0
+                thetas.append(np.pi / 2)  # bias it rightwards
+            else:
+                self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
+
+        if not thetas:
+            now = time.monotonic()
+            prev_age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else None
+            self.get_logger().warn(
+                f'[path_callback] No finite theta values. poses={len(msg.poses)} | '
+                f'prev_path_age={prev_age:.3f}s' if prev_age is not None
+                else f'[path_callback] No finite theta values. poses={len(msg.poses)} | prev_path_age=None'
+            )
+            self.path_angle = None
+            self.path_angle_stamp = None
+            return
+
+        thetas = np.array(thetas, dtype=np.float32)
+
+        # Circular mean of waypoint headings
+        new_angle = float(np.arctan2(np.mean(np.sin(thetas)),
+                                     np.mean(np.cos(thetas))))
+        new_stamp = time.monotonic()
+
+        # ---- estimate angular rate (d path_angle / dt) for the SMC ----
+        if self.prev_path_angle_stamp is not None:
+            dt = new_stamp - self.prev_path_angle_stamp
+            if dt > 1e-3:
+                # wrap the angle difference into [-pi, pi] before differentiating
+                d_angle = np.arctan2(np.sin(new_angle - self.prev_path_angle),
+                                     np.cos(new_angle - self.prev_path_angle))
+                self.instant_angular_rate = float(d_angle / dt)
+            # if dt is too small, keep the previous estimate
+        else:
+            self.instant_angular_rate = 0.0
+
+        self.prev_path_angle = new_angle
+        self.prev_path_angle_stamp = new_stamp
+
+        self.path_angle = new_angle
+        self.path_angle_stamp = new_stamp
+
+        self.get_logger().info(
+            f'[path_callback] finite_thetas={len(thetas)} | '
+            f'path_angle={np.rad2deg(self.path_angle):.2f} deg | '
+            f'angular_rate={np.rad2deg(self.instant_angular_rate):.2f} deg/s'
+        )
+
+    def has_fresh_path(self):
+        now = time.monotonic()
+        age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else float('inf')
+
+        fresh = (
+            self.path_angle is not None and
+            self.path_angle_stamp is not None and
+            age < PATH_TIMEOUT_SEC
+        )
+
+        if (now - self._last_fresh_status_log) > 0.5:
+            self.get_logger().info(
+                f'[has_fresh_path] fresh={fresh} | '
+                f'path_angle_is_none={self.path_angle is None} | '
+                f'path_stamp_is_none={self.path_angle_stamp is None} | '
+                f'age={age:.3f}s | timeout={PATH_TIMEOUT_SEC}s'
+            )
+            self._last_fresh_status_log = now
+
+        return fresh
+
+    # ---- Smoothed sign with boundary layer (matches file 1's self.sign) ----
+    def _smc_sign(self, val):
+        boundary = SMC_PHI * SMC_LAMBDA
+        if abs(val) <= boundary or abs(val) < 1e-9:
+            return 0.0
+        return val / abs(val)
+
+    def compute_path_turn(self):
+        """
+        Sliding mode controller replacing the PID.
+        error  = SMC_TARGET_ANGLE - path_angle  (heading error)
+        s      = lambda * error + angular_rate
+        beta   = p * lambda * |s| + b * rate^2 + b0
+        u      = -sign(s) * beta - rate
+        """
+        error = SMC_TARGET_ANGLE - self.path_angle
+        rate  = self.instant_angular_rate
+
+        s    = SMC_LAMBDA * error + rate
+        beta = SMC_P * SMC_LAMBDA * abs(s) + SMC_B * (rate ** 2) + SMC_B0
+        u    = -self._smc_sign(s) * beta - rate
+
+        # Apply sign convention so that the output matches the previous PID
+        # (PATH_ANGLE_KP was negative, meaning a positive error produced a negative turn).
+        turn = SMC_OUTPUT_SIGN * u
+
+        # Preserve dead-zone / minimum-kick behavior from the PID version
+        if turn > 0.0:
+            turn += MIN_TURN
+        elif turn < 0.0:
+            turn -= MIN_TURN
+        else:
+            turn = 0.0
+
+        turn = float(np.clip(turn, MAX_RIGHT_TURN, MAX_LEFT_TURN))
+
+        return turn, error, s
+
+    def scan_callback(self, msg):
+        # Kept for potential future use / front obstacle detection
+        pass
+
+    def control_loop(self):
+        twist = Twist()
+
+        if self.right_turn_detected:
+            self.get_logger().info('TURN TURN TURN TURN TURN')
+            twist.linear.x = DEFAULT_SPEED
+            twist.angular.z = -250.0 + TURN_BIAS
+            if self.steps_right_turn < 25 and not self.fresh_path_flag:
+                self.steps_right_turn += 1
+                if self.steps_right_turn > 15 and self.has_fresh_path():
+                    self.fresh_path_count += 1
+                    if self.fresh_path_count > 6:
+                        self.fresh_path_flag = True
+            else:
+                self.right_turn_detected = False
+                self.steps_right_turn = 0
+                self.fresh_path_flag = False
+                self.fresh_path_count = 0
+
+        elif self.has_fresh_path():
+            turn_cmd, angle_error, sliding_var = self.compute_path_turn()
+
+            speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
+            twist.linear.x = DEFAULT_SPEED
+            twist.angular.z = turn_cmd + TURN_BIAS
+
+            self.get_logger().info(
+                f'path_err: {np.rad2deg(angle_error):.1f}deg | '
+                f's: {sliding_var:.3f} | '
+                f'rate: {np.rad2deg(self.instant_angular_rate):.1f}deg/s | '
+                f'linear.x: {twist.linear.x:.3f} | '
+                f'angular.z: {twist.angular.z:.3f}'
+            )
+        else:
+            # No fresh path: stop and wait
+            now = time.monotonic()
+            age = (now - self.path_angle_stamp) if self.path_angle_stamp is not None else float('inf')
+
+            # Reset SMC rate estimate so it doesn't carry stale dynamics into the next run
+            self.prev_path_angle = None
+            self.prev_path_angle_stamp = None
+            self.instant_angular_rate = 0.0
+
+            twist.linear.x = 1500.0
+            twist.angular.z = TURN_BIAS
+            self.get_logger().warn(
+                f'[control_loop] No fresh path -> fallback command. '
+                f'path_angle_is_none={self.path_angle is None} | '
+                f'path_stamp_is_none={self.path_angle_stamp is None} | '
+                f'age={age:.3f}s'
+            )
+
+        self.cmd_pub.publish(twist)
+
+
+def main(args=None):
+    print('Starting line follower node (sliding mode control)!')
+    rclpy.init(args=args)
+    node = LineFollower()
+    node.create_timer(0.1, node.control_loop)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
