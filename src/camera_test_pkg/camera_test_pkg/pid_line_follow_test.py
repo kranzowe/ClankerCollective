@@ -53,7 +53,7 @@ class LineFollower(Node):
         self.prev_path_error_stamp = None
         self.turn_stable_count = 0
         self.right_turn_detected = False
-       # self.steps_right_turn = 0
+        self.steps_right_turn = 0
        # self.fresh_path_flag = False
        # self.fresh_path_count = 0 
 
@@ -157,36 +157,20 @@ class LineFollower(Node):
         # ------------------ RIGHT TURN MODE ------------------
         if self.right_turn_detected:
 
+            twist.linear.x = self.default_speed * 0.8
+
             if self.has_fresh_path():
-                turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
-
-                # 🔥90 degree turn override
-                if abs(angle_error) > 1.0:   # 約 60°（更嚴格）
-                    twist.linear.x = DEFAULT_SPEED * 0.5   # 🔥 大幅降速
-                    twist.angular.z = TURN_BIAS + np.sign(angle_error) * 600
-
-                elif abs(angle_error) > 0.6:  # 中等彎
-                    twist.linear.x = DEFAULT_SPEED * 0.7
-                    twist.angular.z = TURN_BIAS + np.sign(angle_error) * 450
-
-                else:
-                    twist.linear.x = DEFAULT_SPEED
-                    twist.angular.z = turn_cmd + TURN_BIAS
-
-                # if the path angle error is small enough, consider the right turn complete
-                if abs(angle_error) < 0.2 and abs(angle_derivative) < 0.15:
-                    self.turn_stable_count += 1
-                else:
-                    self.turn_stable_count = 0
-
-                if self.turn_stable_count > 8:
-                    self.right_turn_detected = False
-                    self.turn_stable_count = 0
-
+                turn_cmd, angle_error, _ = self.compute_path_turn()
+                twist.angular.z = turn_cmd + TURN_BIAS + self.right_bias
             else:
-                # if no fresh path, just keep turning right at a fixed rate (with bias)
-                twist.linear.x = self.default_speed
                 twist.angular.z = TURN_BIAS - 300.0
+
+            # 用 step 保證轉夠
+            if self.steps_right_turn < 25:
+                self.steps_right_turn += 1
+            else:
+                self.right_turn_detected = False
+                self.steps_right_turn = 0
 
         # ------------------ NORMAL PATH FOLLOW ------------------
         elif self.has_fresh_path():
