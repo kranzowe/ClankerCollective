@@ -11,7 +11,7 @@
 
 using std::placeholders::_1;
 
-// ---- BGR -> HLS_FULL  (H, L, S each in [0, 255]) — integer math, no fmodf ----
+// BGR -> HLS_FULL  (H, L, S each in [0, 255])
 static inline void bgr2hls_full_int(int r, int g, int b,
                                     int &H, int &L, int &S)
 {
@@ -48,7 +48,7 @@ static inline void bgr2hls_full_int(int r, int g, int b,
     if (H > 255) H = 255;
 }
 
-// ---- 5x5 Gaussian blur [1,4,6,4,1]/16 separable, scratch buffers passed in ----
+// 5x5 Gaussian blur [1,4,6,4,1]/16 separable
 static void gaussian_blur_bgr(const uint8_t *src, std::vector<uint8_t> &dst,
                               std::vector<int> &tmp, int w, int h)
 {
@@ -77,13 +77,13 @@ static void gaussian_blur_bgr(const uint8_t *src, std::vector<uint8_t> &dst,
     }
 }
 
-// ---- Integral image build (scratch passed in) ----
+// Integral image build (scratch passed in)
 static void build_ii(const std::vector<uint8_t> &mask, std::vector<int> &ii,
                      int w, int h)
 {
     const int W1 = w + 1, H1 = h + 1;
     if ((int)ii.size() != W1 * H1) ii.assign(W1 * H1, 0);
-    // Top row + left column of zero are always 0; we still need to overwrite the data area.
+    // Top row + left column of zero are always 0; still need to overwrite the data area.
     for (int x = 0; x <= w; x++) ii[x] = 0;
     for (int y = 0; y < h; y++) {
         const int row_off  = (y + 1) * W1;
@@ -197,7 +197,7 @@ private:
         return {y_norm * 1.0f, x_norm * 1.4f};
     }
 
-    // ---- BFS blobs inside a rectangle of the mask ----
+    // BFS blobs inside a rectangle of the mask
     struct Blob { int area, min_x, max_x, min_y, max_y; };
 
     std::vector<Blob> find_blobs(const std::vector<uint8_t> &mask, int full_w,
@@ -247,7 +247,7 @@ private:
         return blobs;
     }
 
-    // ---- Main Callback ----
+    // Main Callback
     void callback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
         const auto t0 = std::chrono::steady_clock::now();
@@ -261,15 +261,14 @@ private:
         const int orig_height = (int)msg->height;
         const int width       = (int)msg->width;
 
-        // Crop top 25% (matching Python crop_ratio = 0.75).
         const int start_y = (int)(orig_height * 0.25);
         const int height  = orig_height - start_y;
         const uint8_t *crop_ptr = msg->data.data() + start_y * width * 3;
 
-        // Gaussian blur (channel-agnostic — encoding is preserved through it).
+        // Gaussian blur (channel-agnostic — encoding is preserved through it)
         gaussian_blur_bgr(crop_ptr, blur_buf_, blur_tmp_, width, height);
 
-        // ---- Build HLS_FULL mask. Pick R/G/B based on encoding without copying. ----
+        // Build HLS_FULL mask. Pick R/G/B based on encoding without copying
         const int N = width * height;
         if ((int)mask_a_.size() != N) mask_a_.resize(N);
 
@@ -289,13 +288,12 @@ private:
             }
         }
 
-        // ---- Morphological OPEN (erode -> dilate) then CLOSE (dilate -> erode) ----
+        // Morphological OPEN (erode -> dilate) then CLOSE (dilate -> erode)
         erode5 (mask_a_, mask_b_, ii_buf_, width, height);
         dilate5(mask_b_, mask_a_, ii_buf_, width, height);   // OPEN  -> mask_a_
         dilate5(mask_a_, mask_b_, ii_buf_, width, height);
         erode5 (mask_b_, mask_,   ii_buf_, width, height);   // CLOSE -> mask_
 
-        // ---- Horizontal bands (8 bands, orig_height for band_h, matches Python) ----
         nav_2d_msgs::msg::Path2D path;
         const int num_bands = 8;
         const int band_h = orig_height / num_bands;
@@ -341,13 +339,13 @@ private:
         }
         prev_hband_x_ = prev_x;
 
-        // ---- No-blob fallback: go straight ----
+        // If noghint seen, go straight
         bool any_valid = std::any_of(chosen_pts.begin(), chosen_pts.end(),
             [](const std::pair<int, int> &p){ return p.first != -1; });
         if (!any_valid)
             chosen_pts = {{width / 2, height / 2}};
 
-        // ---- Build Path2D poses (horizontal bands) ----
+        // Build Path2D poses (horizontal bands)
         std::vector<std::pair<int, int>> valid_pts;
         for (auto &p : chosen_pts) if (p.first != -1) valid_pts.push_back(p);
 
@@ -366,7 +364,7 @@ private:
             path.poses.push_back(pose);
         }
 
-        // ---- Vertical bands (4 bands on right 1/3) ----
+        // Vertical bands (4 bands on right 1/3)
         const int num_vert = 4;
         const float vert_bw = std::floor(width * 1.0f / 3.0f / num_vert);
         int prev_vy = -1;
@@ -413,7 +411,7 @@ private:
         if (!path.poses.empty())
             path_pub_->publish(path);
 
-        // ---- Latency log (throttled to 1 Hz) ----
+        // Latency log (throttled to 1 Hz)
         const auto t1 = std::chrono::steady_clock::now();
         const double dt_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
         RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
