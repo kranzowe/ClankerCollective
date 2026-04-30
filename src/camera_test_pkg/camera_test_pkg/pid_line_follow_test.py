@@ -169,8 +169,8 @@ class LineFollower(Node):
 
 
 def main(args=None):
-    print('Waiting 13 seconds before starting...')
-    time.sleep(13)
+    print('Waiting 5 seconds before starting...')
+    time.sleep(5)
     print('Starting line follower node!')
     rclpy.init(args=args)
     node = LineFollower()
