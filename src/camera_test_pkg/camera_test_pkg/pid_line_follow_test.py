@@ -35,7 +35,7 @@ class LineFollower(Node):
         self.right_bias = self.get_parameter('right_bias').get_parameter_value().double_value
         self.angle_error_threshold = self.get_parameter('angle_error_threshold').get_parameter_value().double_value
         self.add_on_set_parameters_callback(self._on_params_changed)
-
+        
         self.path_sub = self.create_subscription(
             Path2D,
             '/line_path',
@@ -51,7 +51,7 @@ class LineFollower(Node):
         self.path_angle_stamp = None
         self.prev_path_error = 0.0
         self.prev_path_error_stamp = None
-
+        self.turn_stable_count = 0
         self.right_turn_detected = False
        # self.steps_right_turn = 0
        # self.fresh_path_flag = False
@@ -175,7 +175,11 @@ class LineFollower(Node):
 
                 # if the path angle error is small enough, consider the right turn complete
                 if abs(angle_error) < self.angle_error_threshold:
-                    self.get_logger().info('Right turn complete')
+                    self.turn_stable_count += 1
+                else:
+                    self.turn_stable_count = 0
+
+                if self.turn_stable_count > 10:
                     self.right_turn_detected = False
 
             else:
