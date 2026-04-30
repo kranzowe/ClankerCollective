@@ -174,13 +174,14 @@ class LineFollower(Node):
                     twist.angular.z = turn_cmd + TURN_BIAS
 
                 # if the path angle error is small enough, consider the right turn complete
-                if abs(angle_error) < self.angle_error_threshold:
+                if abs(angle_error) < 0.2 and abs(angle_derivative) < 0.15:
                     self.turn_stable_count += 1
                 else:
                     self.turn_stable_count = 0
 
-                if self.turn_stable_count > 200:
+                if self.turn_stable_count > 8:
                     self.right_turn_detected = False
+                    self.turn_stable_count = 0
 
             else:
                 # if no fresh path, just keep turning right at a fixed rate (with bias)
