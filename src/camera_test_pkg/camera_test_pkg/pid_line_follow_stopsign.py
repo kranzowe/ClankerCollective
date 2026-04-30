@@ -21,12 +21,12 @@ MAX_LEFT_TURN = 800.0
 MAX_RIGHT_TURN = -1000.0
 TURN_BIAS = 1450.0
 
-STOP_DURATION_SEC = 2.0   # how long to hold at the stop sign
+STOP_DURATION_SEC = 2.0   # how long to hold at the stop sign (seconds)
 
 # Stop sign states
 STOP_STATE_READY    = 'READY'      # watching for a stop sign
-STOP_STATE_STOPPING = 'STOPPING'   # saw one, timing 2 seconds
-STOP_STATE_COOLDOWN = 'COOLDOWN'   # done, ignoring sign until it clears
+STOP_STATE_STOPPING = 'STOPPING'   # saw one, stopping for x amount of seconds
+STOP_STATE_COOLDOWN = 'COOLDOWN'   # done, ignoring signs until it clears, then ready to stop again
 
 
 class LineFollower(Node):
@@ -40,7 +40,7 @@ class LineFollower(Node):
             10
         )
 
-        self.stop_sub = self.create_subscription(
+        self.stop_sub = self.create_subscription(       #do we see a stop sign??? True = yes False = Nooooo
             Bool,
             '/stop_sign_stop',
             self.stop_sign_callback,
@@ -64,7 +64,7 @@ class LineFollower(Node):
         # Stop sign state machine
         self.stop_state = STOP_STATE_READY
         self.stop_start_time = None    # when we entered STOPPING
-        self.stop_sign_active = False  # latest value from /stop_sign_stop
+        self.stop_sign_active = False  # latest value from topic /stop_sign_stop
 
     # ------------------ Stop Sign Callback ------------------
     def stop_sign_callback(self, msg: Bool):
@@ -144,10 +144,10 @@ class LineFollower(Node):
         twist = Twist()
         now = time.monotonic()
 
-        # ---- Stop sign state machine (runs first, highest priority) ----
+        # ---- Stop sign state machine (runs first, highest priority (PEMDAS of the events)) ----
         if self.stop_state == STOP_STATE_READY:
             if self.stop_sign_active:
-                # Just saw a stop sign — begin the stop
+                # Just saw a stop sign (bool is true, we see red), STOP
                 self.get_logger().info('Stop sign! Stopping for 2 seconds.')
                 self.stop_state = STOP_STATE_STOPPING
                 self.stop_start_time = now
@@ -156,24 +156,24 @@ class LineFollower(Node):
 
         elif self.stop_state == STOP_STATE_STOPPING:
             if now - self.stop_start_time < STOP_DURATION_SEC:
-                # Still within the 2-second hold
+                # Still within the 2-second holding period, we stay stopped
                 self.hold_position(twist)
                 return
             else:
-                # 2 seconds are up — move to cooldown
+                # 2 seconds are up, we enter cooldown phase, 
                 self.get_logger().info('Stop complete. Entering cooldown.')
                 self.stop_state = STOP_STATE_COOLDOWN
 
         elif self.stop_state == STOP_STATE_COOLDOWN:
             if self.stop_sign_active:
-                # Sign still visible — keep ignoring it, fall through to drive normally
+                # Sign still visible during cooldown: keep ignoring it, fall through to drive normally
                 pass
             else:
-                # Sign has cleared — ready to respond to the next one
+                # Sign has cleared, ready to respond to the next one, return to origional STATE!!!
                 self.get_logger().info('Stop sign cleared. Ready for next stop.')
                 self.stop_state = STOP_STATE_READY
 
-        # ---- Normal driving logic ----
+        # ---- Driving logic from other PID follower code, remains the same, except for P and D terms----
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED
@@ -225,5 +225,6 @@ def main(args=None):
     rclpy.shutdown()
 
 
+#entry point
 if __name__ == '__main__':
     main()

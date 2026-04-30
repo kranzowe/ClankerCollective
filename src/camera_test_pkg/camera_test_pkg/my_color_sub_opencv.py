@@ -48,7 +48,7 @@ class ImageListener(Node):
         self.bgr_lower = np.zeros(3)
         self.bgr_upper = np.zeros(3)
         self.last_save_time = 0.0   
-    # ------------------ Image to Robot Relation ------------------
+    # ------------------ Image to Robot Relation, creating "points" for pure pursuit (unused for pid follower) ------------------
     def image_to_robot(self, pt, width, height):
         px, py = pt
 
@@ -92,7 +92,7 @@ class ImageListener(Node):
 
         
 
-        # ---- ORIGINAL: largest contour code, unused in this model (CAN IGNORE) ----
+        # ---- origional code, for the paper follower, unused for final: largest contour code, unused in this model (CAN IGNORE) ----
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # --- see old code for explainations, removed them to make this easier to read ---
@@ -121,9 +121,9 @@ class ImageListener(Node):
 
                     self.rectangle_pub.publish(rectangle_msg)
 
-        # ---- NEW: Band-based path extraction ----
+        # ----New, line follower openCV: Band-based path extraction ----
 
-        num_bands = 8   #6 horizontal bands, plans out the path for the robot, max of 6 poitns
+        num_bands = 8   #8 horizontal bands, plans out the path for the robot, max of 8 poitns, often a bit less.
         band_height = height // num_bands
         chosen_points = []
 

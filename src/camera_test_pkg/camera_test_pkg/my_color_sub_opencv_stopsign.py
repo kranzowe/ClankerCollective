@@ -60,7 +60,7 @@ class ImageListener(Node):
         self.stop_sign_min_area = 1000
 
 
-    # ------------------ Image to Robot Relation ------------------
+    # ------------------ Image to Robot Relation, creating "points" for pure pursuit (unused for pid follower) ------------------
     def image_to_robot(self, pt, width, height):
         px, py = pt
 
@@ -80,7 +80,11 @@ class ImageListener(Node):
         """
         Detects red blobs in the frame using two HSV ranges (red wraps around 0/180).
         Returns True if a sufficiently large red blob is found, False otherwise.
-        Also draws debug visuals on the frame in-place.
+        Also draws debug visuals on the frame in-place. 
+
+        This will run over the normal image overlay, won't take up too much computing power, since this is on OpenCV, 
+        we just return a bool if we see it or not, planning on having a cooldown where after we initially see a sign,
+        we continue as normal until we dont see it then the cooldown stops then normal
         """
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -121,7 +125,7 @@ class ImageListener(Node):
 
         prev_point = self.prev_point
 
-        # ---- STOP SIGN CHECK (runs on full frame, before crop) ----
+        # ---- STOP SIGN CHECK (runs the full frame, before cropping) ----
         if self.stop_sign_detection_enabled:
             if self.detect_stop_sign(frame):
                 stop_msg = Bool()
@@ -133,7 +137,7 @@ class ImageListener(Node):
                 stop_msg.data = False
                 self.stop_pub.publish(stop_msg)
                 self.get_logger().info("No stop sign :(")
-        # ---- CROP TOP REGION OUT ----
+        # ---- CROP TOP REGION OUT, ignore noise at top ----
 
         crop_ratio = 0.75
         start_y = int(height * (1 - crop_ratio))
@@ -152,7 +156,7 @@ class ImageListener(Node):
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-        # ---- ORIGINAL: largest contour code, unused in this model (CAN IGNORE) ----
+        # ---- origional code, for the paper follower, unused for final: largest contour code, unused in this model (CAN IGNORE) ----
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if len(contours) > 0:
@@ -180,7 +184,7 @@ class ImageListener(Node):
 
                     self.rectangle_pub.publish(rectangle_msg)
 
-        # ---- NEW: Band-based path extraction ----
+        # ----New, line follower openCV: Band-based path extraction ----
         num_bands = 8
         band_height = height // num_bands
         chosen_points = []
@@ -239,7 +243,7 @@ class ImageListener(Node):
                 prev_point = best_point
 
 
-        ### SOME VERTICAL POINTS TO THE RIGHT NEEDED
+        ### SOME VERTICAL POINTS TO THE RIGHT NEEDED, RIGHT TURN SECQUENCE :D
         num_vert_bands = 4
         vert_band_width = (width*1.0/3.0) // num_vert_bands
         vert_chosen_points = []
