@@ -171,7 +171,7 @@ class LineFollower(Node):
                 self.steps_right_turn += 1
                 if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
                     self.fresh_path_count+=1   
-                    if self.fresh_path_count > 11:
+                    if self.fresh_path_count > 10:
                         self.fresh_path_flag = True
             else:
                 self.right_turn_detected = False
