@@ -59,13 +59,13 @@ class LineFollower(Node):
         
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
             # Check if all final poses are horizontally aligned (within tolerance)
-            final_poses = msg.poses[-4:]
+            final_poses = msg.poses[-3:]
             y_tolerance = 10  # adjust based on your image scale
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
             
             if y_aligned:
-                if not self.right_turn_detected and  not self.right_turn_detected:
+                if not self.right_turn_detected:
                     self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
                     self.right_turn_detected = True
                  #   self.steps_right_turn = 0
@@ -81,7 +81,11 @@ class LineFollower(Node):
         thetas = np.array(thetas, dtype=np.float32)
 
         # Circular mean of waypoint headings
-        self.path_angle = (self.path_angle + np.pi) % (2 * np.pi) - np.pi
+        angle = float(np.arctan2(np.mean(np.sin(thetas)),
+                         np.mean(np.cos(thetas))))
+
+        # normalize to [-pi, pi]
+        self.path_angle = (angle + np.pi) % (2 * np.pi) - np.pi
         self.path_angle_stamp = time.monotonic()
 
 
