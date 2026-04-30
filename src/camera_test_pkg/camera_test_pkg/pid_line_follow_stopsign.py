@@ -177,12 +177,12 @@ class LineFollower(Node):
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = -250.0 + TURN_BIAS
+            twist.angular.z = -300.0 + TURN_BIAS
             if self.steps_right_turn < 30 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
                 if self.steps_right_turn > 15 and self.has_fresh_path():
                     self.fresh_path_count += 1
-                    if self.fresh_path_count > 8:
+                    if self.fresh_path_count > 10:
                         self.fresh_path_flag = True
             else:
                 self.right_turn_detected = False
