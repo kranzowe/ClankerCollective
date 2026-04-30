@@ -159,9 +159,15 @@ class LineFollower(Node):
             if self.has_fresh_path():
                 turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
-                twist.linear.x = self.default_speed
-                twist.angular.z = turn_cmd + TURN_BIAS + self.right_bias
-
+                # 🔥90 degree turn override
+                if abs(angle_error) > 0.8:
+                    twist.linear.x = DEFAULT_SPEED * 0.7
+                    twist.angular.z = TURN_BIAS - 500
+                else:
+                    RIGHT_BIAS = -220.0
+                    twist.linear.x = DEFAULT_SPEED * 0.9
+                    twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
+                    
                 # if the path angle error is small enough, consider the right turn complete
                 if abs(angle_error) < self.angle_error_threshold:
                     self.get_logger().info('Right turn complete')
@@ -177,15 +183,22 @@ class LineFollower(Node):
 
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
-            speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = self.default_speed
-            twist.angular.z = turn_cmd + TURN_BIAS
+            # 🔥90 degree turn override
+            if abs(angle_error) > 0.8:   # 約 45°
+                twist.linear.x = DEFAULT_SPEED * 0.7
+                twist.angular.z = TURN_BIAS + np.sign(angle_error) * 500
+
+            else:
+                #regular PID
+                speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
+                twist.linear.x = DEFAULT_SPEED
+                twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
                 f'path_err: {np.rad2deg(angle_error):.1f}deg | '
-                f'path_d: {np.rad2deg(angle_derivative):.1f}deg/s | '
                 f'linear.x: {twist.linear.x:.3f} | '
                 f'angular.z: {twist.angular.z:.3f}'
+            )
             )
 
         # ------------------ NO PATH ------------------
