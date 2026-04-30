@@ -179,7 +179,7 @@ class LineFollower(Node):
                 else:
                     self.turn_stable_count = 0
 
-                if self.turn_stable_count > 10:
+                if self.turn_stable_count > 200:
                     self.right_turn_detected = False
 
             else:
