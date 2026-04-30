@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1420.0
+DEFAULT_SPEED = 1418.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -171,7 +171,7 @@ class LineFollower(Node):
                 self.steps_right_turn += 1
                 if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
                     self.fresh_path_count+=1   
-                    if self.fresh_path_count > 8:
+                    if self.fresh_path_count > 12:
                         self.fresh_path_flag = True
             else:
                 self.right_turn_detected = False
