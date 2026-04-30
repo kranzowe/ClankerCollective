@@ -91,13 +91,14 @@ class LineFollower(Node):
             y_tolerance = 10  # adjust based on your image scale
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
-            
-            if y_aligned:
-                if not self.right_turn_detected:
-                    self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
-                    self.right_turn_detected = True
-                 #   self.steps_right_turn = 0
-                thetas.append(np.pi / 2)  # bias it rightwards
+                        
+            if y_aligned and not self.right_turn_detected:
+                self.get_logger().info('RIGHT TURN DETECTED')
+                self.right_turn_detected = True
+
+            # 🔥 一旦進入右轉，就一直 bias
+            if self.right_turn_detected:
+                thetas.append(np.pi / 2)
             else:
                 self.get_logger().info(f'Not horizontal: y spread = {max(p.y for p in final_poses) - min(p.y for p in final_poses):.3f}')
 
