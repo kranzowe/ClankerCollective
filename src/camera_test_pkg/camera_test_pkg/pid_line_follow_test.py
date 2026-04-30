@@ -160,13 +160,17 @@ class LineFollower(Node):
                 turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
                 # 🔥90 degree turn override
-                if abs(angle_error) > 0.8:
+                if abs(angle_error) > 1.0:   # 約 60°（更嚴格）
+                    twist.linear.x = DEFAULT_SPEED * 0.5   # 🔥 大幅降速
+                    twist.angular.z = TURN_BIAS + np.sign(angle_error) * 600
+
+                elif abs(angle_error) > 0.6:  # 中等彎
                     twist.linear.x = DEFAULT_SPEED * 0.7
-                    twist.angular.z = TURN_BIAS - 500
+                    twist.angular.z = TURN_BIAS + np.sign(angle_error) * 450
+
                 else:
-                    RIGHT_BIAS = -220.0
-                    twist.linear.x = DEFAULT_SPEED * 0.9
-                    twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
+                    twist.linear.x = DEFAULT_SPEED
+                    twist.angular.z = turn_cmd + TURN_BIAS
 
                 # if the path angle error is small enough, consider the right turn complete
                 if abs(angle_error) < self.angle_error_threshold:
