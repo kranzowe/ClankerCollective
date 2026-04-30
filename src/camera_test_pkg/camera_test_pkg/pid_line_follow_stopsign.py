@@ -8,7 +8,7 @@ from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 from std_msgs.msg import Bool
 
-DEFAULT_SPEED = 1410.0
+DEFAULT_SPEED = 1418.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
