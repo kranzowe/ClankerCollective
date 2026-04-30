@@ -24,6 +24,10 @@ class LineFollower(Node):
     def __init__(self):
         super().__init__('line_follower_node')
 
+        self.declare_parameter('default_speed', DEFAULT_SPEED)
+        self.default_speed = self.get_parameter('default_speed').get_parameter_value().double_value
+        self.add_on_set_parameters_callback(self._on_params_changed)
+
         self.path_sub = self.create_subscription(
             Path2D,
             '/line_path',
@@ -44,6 +48,14 @@ class LineFollower(Node):
        # self.steps_right_turn = 0
        # self.fresh_path_flag = False
        # self.fresh_path_count = 0 
+
+    def _on_params_changed(self, params):
+        from rcl_interfaces.msg import SetParametersResult
+        for p in params:
+            if p.name == 'default_speed':
+                self.default_speed = p.value
+                self.get_logger().info(f'default_speed updated to {self.default_speed}')
+        return SetParametersResult(successful=True)
 
     def angle_diff(self, a, b):
         d = a - b
@@ -133,7 +145,7 @@ class LineFollower(Node):
 
                 RIGHT_BIAS = -180.0   # tune this bias to adjust how aggressively it turns right during the turn maneuver
 
-                twist.linear.x = DEFAULT_SPEED
+                twist.linear.x = self.default_speed
                 twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
 
                 # if the path angle error is small enough, consider the right turn complete
@@ -143,7 +155,7 @@ class LineFollower(Node):
 
             else:
                 # if no fresh path, just keep turning right at a fixed rate (with bias)
-                twist.linear.x = DEFAULT_SPEED
+                twist.linear.x = self.default_speed
                 twist.angular.z = TURN_BIAS - 300.0
 
         # ------------------ NORMAL PATH FOLLOW ------------------
@@ -152,7 +164,7 @@ class LineFollower(Node):
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED
+            twist.linear.x = self.default_speed
             twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
