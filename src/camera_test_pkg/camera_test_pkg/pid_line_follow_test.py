@@ -167,7 +167,7 @@ class LineFollower(Node):
                     RIGHT_BIAS = -220.0
                     twist.linear.x = DEFAULT_SPEED * 0.9
                     twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
-                    
+
                 # if the path angle error is small enough, consider the right turn complete
                 if abs(angle_error) < self.angle_error_threshold:
                     self.get_logger().info('Right turn complete')
@@ -199,7 +199,7 @@ class LineFollower(Node):
                 f'linear.x: {twist.linear.x:.3f} | '
                 f'angular.z: {twist.angular.z:.3f}'
             )
-            )
+            
 
         # ------------------ NO PATH ------------------
         else:
