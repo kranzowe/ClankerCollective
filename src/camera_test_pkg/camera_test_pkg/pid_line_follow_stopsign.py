@@ -80,7 +80,7 @@ class LineFollower(Node):
 
         if all(np.isfinite([pose.theta for pose in msg.poses[-4:]])):
             final_poses = msg.poses[-3:]
-            y_tolerance = 10
+            y_tolerance = 100
             first_y = final_poses[0].y
             y_aligned = all(abs(pose.y - first_y) < y_tolerance for pose in final_poses)
 
