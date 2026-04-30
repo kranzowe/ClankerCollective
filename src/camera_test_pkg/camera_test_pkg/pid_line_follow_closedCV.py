@@ -25,6 +25,10 @@ class LineFollower(Node):
     def __init__(self):
         super().__init__('line_follower_node')
 
+        self.declare_parameter('default_speed', DEFAULT_SPEED)
+        self.default_speed = self.get_parameter('default_speed').get_parameter_value().double_value
+        self.add_on_set_parameters_callback(self._on_params_changed)
+
         self.path_sub = self.create_subscription(
             Path2D,
             '/line_path',
@@ -48,6 +52,14 @@ class LineFollower(Node):
 
         # Debug logging throttle
         self._last_fresh_status_log = 0.0
+
+    def _on_params_changed(self, params):
+        from rcl_interfaces.msg import SetParametersResult
+        for p in params:
+            if p.name == 'default_speed':
+                self.default_speed = p.value
+                self.get_logger().info(f'default_speed updated to {self.default_speed}')
+        return SetParametersResult(successful=True)
 
     def path_callback(self, msg: Path2D):
         thetas = []
@@ -153,7 +165,7 @@ class LineFollower(Node):
         
         if self.right_turn_detected:
             self.get_logger().info('TURN TURN TURN TURN TURN')
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.linear.x = self.default_speed #* speed_scale
             twist.angular.z =  -300.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
             if self.steps_right_turn < 25 and not self.fresh_path_flag:
                 self.steps_right_turn += 1
@@ -171,7 +183,7 @@ class LineFollower(Node):
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             speed_scale = max(0.35, 1.0 - min(abs(angle_error) / 1.2, 0.65))
-            twist.linear.x = DEFAULT_SPEED #* speed_scale
+            twist.linear.x = self.default_speed #* speed_scale
             twist.angular.z = turn_cmd + TURN_BIAS
 
             self.get_logger().info(
