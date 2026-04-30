@@ -25,7 +25,15 @@ class LineFollower(Node):
         super().__init__('line_follower_node')
 
         self.declare_parameter('default_speed', DEFAULT_SPEED)
+        self.declare_parameter('path_angle_kp', PATH_ANGLE_KP)
+        self.declare_parameter('path_angle_kd', PATH_ANGLE_KD)
+        self.declare_parameter('right_bias', -220.0)
+        self.declare_parameter('angle_error_threshold', 0.25)
         self.default_speed = self.get_parameter('default_speed').get_parameter_value().double_value
+        self.path_angle_kp = self.get_parameter('path_angle_kp').get_parameter_value().double_value
+        self.path_angle_kd = self.get_parameter('path_angle_kd').get_parameter_value().double_value
+        self.right_bias = self.get_parameter('right_bias').get_parameter_value().double_value
+        self.angle_error_threshold = self.get_parameter('angle_error_threshold').get_parameter_value().double_value
         self.add_on_set_parameters_callback(self._on_params_changed)
 
         self.path_sub = self.create_subscription(
@@ -54,7 +62,15 @@ class LineFollower(Node):
         for p in params:
             if p.name == 'default_speed':
                 self.default_speed = p.value
-                self.get_logger().info(f'default_speed updated to {self.default_speed}')
+            elif p.name == 'path_angle_kp':
+                self.path_angle_kp = p.value
+            elif p.name == 'path_angle_kd':
+                self.path_angle_kd = p.value
+            elif p.name == 'right_bias':
+                self.right_bias = p.value
+            elif p.name == 'angle_error_threshold':
+                self.angle_error_threshold = p.value
+            self.get_logger().info(f'{p.name} updated to {p.value}')
         return SetParametersResult(successful=True)
 
     def angle_diff(self, a, b):
@@ -126,7 +142,7 @@ class LineFollower(Node):
         self.prev_path_error = error
         self.prev_path_error_stamp = now
 
-        turn = (PATH_ANGLE_KP * error + PATH_ANGLE_KD * derivative)
+        turn = (self.path_angle_kp * error + self.path_angle_kd * derivative)
         turn = float(np.clip(turn, MAX_RIGHT_TURN, MAX_LEFT_TURN))
         return turn, error, derivative
 
@@ -143,13 +159,11 @@ class LineFollower(Node):
             if self.has_fresh_path():
                 turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
-                RIGHT_BIAS = -180.0   # tune this bias to adjust how aggressively it turns right during the turn maneuver
-
                 twist.linear.x = self.default_speed
-                twist.angular.z = turn_cmd + TURN_BIAS + RIGHT_BIAS
+                twist.angular.z = turn_cmd + TURN_BIAS + self.right_bias
 
                 # if the path angle error is small enough, consider the right turn complete
-                if abs(angle_error) < 0.18:
+                if abs(angle_error) < self.angle_error_threshold:
                     self.get_logger().info('Right turn complete')
                     self.right_turn_detected = False
 
