@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_2d_msgs.msg import Path2D
 
-DEFAULT_SPEED = 1418.0
+DEFAULT_SPEED = 1410.0
 
 DEFAULT_TURN_RATE = 7.0
 CENTER = 0.7
@@ -27,8 +27,8 @@ TURN_BIAS = 1480.0
 # speed: linear.x PWM during the turn
 TURN_CONFIGS = [
     {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 1
-    {"steps": 50, "steer": -350.0, "speed": DEFAULT_SPEED},  # turn 2
-    {"steps": 26, "steer": -350.0, "speed": DEFAULT_SPEED},  # turn 3
+    {"steps": 60, "steer": -350.0, "speed": DEFAULT_SPEED},  # turn 2
+    {"steps": 35, "steer": -350.0, "speed": DEFAULT_SPEED},  # turn 3
 ]
 
 class LineFollower(Node):
