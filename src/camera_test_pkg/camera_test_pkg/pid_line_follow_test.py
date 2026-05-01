@@ -96,7 +96,7 @@ class LineFollower(Node):
                 self.get_logger().info('RIGHT TURN DETECTED')
                 self.right_turn_detected = True
 
-            # 🔥 一旦進入右轉，就一直 bias
+            # as long as right turn detected 
             if self.right_turn_detected:
                 thetas.append(np.pi / 2)
             else:
@@ -157,7 +157,7 @@ class LineFollower(Node):
         # ------------------ RIGHT TURN MODE ------------------
         if self.right_turn_detected:
 
-            twist.linear.x = self.default_speed * 0.8
+            twist.linear.x = self.default_speed * 1.01
 
             if self.has_fresh_path():
                 turn_cmd, angle_error, _ = self.compute_path_turn()
@@ -165,8 +165,8 @@ class LineFollower(Node):
             else:
                 twist.angular.z = TURN_BIAS - 300.0
 
-            # 用 step 保證轉夠
-            if self.steps_right_turn < 25:
+            
+            if self.steps_right_turn < 8:
                 self.steps_right_turn += 1
             else:
                 self.right_turn_detected = False
@@ -178,8 +178,8 @@ class LineFollower(Node):
             turn_cmd, angle_error, angle_derivative = self.compute_path_turn()
 
             # 🔥90 degree turn override
-            if abs(angle_error) > 0.8:   # 約 45°
-                twist.linear.x = DEFAULT_SPEED * 0.7
+            if abs(angle_error) > 0.8:   # about 45°
+                twist.linear.x = DEFAULT_SPEED
                 twist.angular.z = TURN_BIAS + np.sign(angle_error) * 500
 
             else:
@@ -222,4 +222,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-    #nick
+
