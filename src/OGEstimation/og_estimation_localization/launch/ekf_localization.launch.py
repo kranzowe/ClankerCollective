@@ -9,8 +9,8 @@ import os
 
 
 def generate_launch_description():
-    localization_pkg = get_package_share_directory('estimation_localization')
-    mapping_pkg = get_package_share_directory('estimation_mapping')
+    localization_pkg = get_package_share_directory('og_estimation_localization')
+    mapping_pkg = get_package_share_directory('og_estimation_mapping')
 
     default_map = os.path.join(localization_pkg, 'maps', 'Course11.yaml')
     ekf_params = os.path.join(localization_pkg, 'config', 'ekf_localization.yaml')
@@ -42,7 +42,7 @@ def generate_launch_description():
     )
 
     odom_tf_node = Node(
-        package='estimation_localization',
+        package='og_estimation_localization',
         executable='odom_tf_publisher',
         name='odom_tf_publisher',
         output='screen',
@@ -73,7 +73,7 @@ def generate_launch_description():
     ekf_node = TimerAction(
         period=2.0,
         actions=[Node(
-            package='estimation_localization',
+            package='og_estimation_localization',
             executable='ekf_localization_node',
             name='ekf_localization',
             output='screen',

@@ -24,7 +24,13 @@ setup(
     description='Localization package for AMCL and slam_toolbox localization',
     license='Apache-2.0',
     tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest', 'numpy', 'scipy', 'pillow', 'pyyaml'],
+    },
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'odom_tf_publisher = og_estimation_localization.odom_tf_publisher:main',
+            'ekf_localization_node = og_estimation_localization.ekf_localization_node:main',
+        ],
     },
 )

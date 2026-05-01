@@ -1,0 +1,66 @@
+ekf_localization:
+  ros__parameters:
+    # Set at launch from the map_server yaml argument; do NOT hard-code unless
+    # bypassing the launch file.
+    map_yaml: ""
+
+    # Initial pose in the map frame (meters, radians).
+    initial_x: 0.0
+    initial_y: 0.0
+    initial_yaw: 0.0
+
+    # Process noise stddev per sqrt(s) — Q = diag(q^2 * dt) per step.
+    # q_xy: translational drift (commanded velocity vs actual).
+    # q_yaw: gyro bias / integration noise.
+    q_xy: 0.05
+    q_yaw: 0.03
+
+    # Measurement noise stddev for ICP-corrected pose.
+    # Lower r_* => trust the scan-match more (faster snap to walls, jumpier).
+    r_xy: 0.05
+    r_yaw: 0.03
+
+    # ICP tuning.
+    icp_max_iters: 15
+    icp_max_corr_dist: 0.5         # meters; nearest-neighbor cutoff
+    icp_residual_reject: 0.30      # meters; reject update if mean residual exceeds this
+
+    # Scan downsampling.
+    scan_stride: 2                 # use every Nth beam
+    scan_min_range: 0.20
+    scan_max_range: 12.0
+
+    # Frames.
+    odom_frame: odom
+    base_frame: base_link
+    laser_frame: laser
+    map_frame: map
+
+    # Predict-step rate (Hz).
+    predict_rate: 50.0
+
+    # Stationary bias calibration. Average the first `calibration_duration`
+    # seconds of /ol_rates.linear.x and /imu/gyro.z while the robot is at rest,
+    # then subtract those means from all future readings. Keeps the predict
+    # step from running to infinity on a small standing offset.
+    # KEEP THE ROBOT STILL FOR THE FIRST FEW SECONDS AFTER LAUNCH.
+    calibrate_at_startup: true
+    calibration_duration: 2.0
+
+    # Sign convention for the body-frame velocity / yaw rate. Flip to -1.0 if
+    # driving forward makes the estimate go backward (or rotation goes the
+    # wrong way). Bias is computed from the raw signal, then sign is applied.
+    vx_sign: -1.0
+    gyro_sign: 1.0
+
+    # Lost-localization recovery. If ICP rejects N consecutive scans, publish a
+    # stop command on `recovery_cmd_topic`, re-run bias calibration, and inflate
+    # covariance so subsequent ICP updates snap the state hard. Exit once N
+    # consecutive ICP updates land below the residual threshold again.
+    recovery_enable: true
+    recovery_reject_count: 5         # consecutive rejects before triggering
+    recovery_success_count: 5        # consecutive accepts before exiting
+    recovery_stop_throttle: 1500.0   # neutral PWM in this stack's cmd_vel convention
+    recovery_inflate_xy: 1.0         # m, 1-sigma after recovery trigger
+    recovery_inflate_yaw_deg: 30.0   # deg, 1-sigma after recovery trigger
+    recovery_cmd_topic: "/cmd_vel"

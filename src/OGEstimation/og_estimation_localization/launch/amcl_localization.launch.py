@@ -6,13 +6,13 @@ from ament_index_python.packages import get_package_share_directory
 from launch.actions import IncludeLaunchDescription, LogInfo, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 import os
-#hi
+
 
 def generate_launch_description():
     localization_pkg = get_package_share_directory('og_estimation_localization')
     mapping_pkg = get_package_share_directory('og_estimation_mapping')
 
-    default_map = os.path.join(localization_pkg, 'maps', 'working_map.yaml')
+    default_map = os.path.join(localization_pkg, 'maps', 'lab.yaml')
     amcl_params = os.path.join(localization_pkg, 'config', 'amcl.yaml')
     lifecycle_params = os.path.join(localization_pkg, 'config', 'lifecycle_localization.yaml')
     urdf_file = os.path.join(mapping_pkg, 'urdf', 'simple.urdf')
@@ -41,6 +41,13 @@ def generate_launch_description():
     )
     
 
+    odom_tf_node = Node(
+    package='tf2_ros',
+    executable='static_transform_publisher',
+    name='odom_to_base_link',
+    arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_link']
+    
+    )
     map_server_node = Node(
         package='nav2_map_server',
         executable='map_server',
@@ -79,4 +86,5 @@ def generate_launch_description():
         amcl_node,
         lifecycle_node,
         rplidar_launch_action,
+        odom_tf_node
     ])

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp -r ../Estimation/lidar_detect og_lidar_detect)",
+      "Bash(find og_lidar_detect -type f \\\\\\( -name \"*.py\" -o -name \"*.xml\" -o -name \"*.cfg\" \\\\\\) -exec sed -i -e 's/\\\\bestimation_localization\\\\b/og_estimation_localization/g' -e 's/\\\\bestimation_mapping\\\\b/og_estimation_mapping/g' -e 's/\\\\blidar_detect\\\\b/og_lidar_detect/g' -e 's/\\\\bpf_localization\\\\b/og_pf_localization/g' {} +)",
+      "Bash(cp -r ../Estimation/pf_localization og_pf_localization)",
+      "Bash(find og_pf_localization -type f \\\\\\( -name \"*.py\" -o -name \"*.xml\" -o -name \"*.cfg\" \\\\\\) -exec sed -i -e 's/\\\\bestimation_localization\\\\b/og_estimation_localization/g' -e 's/\\\\bestimation_mapping\\\\b/og_estimation_mapping/g' -e 's/\\\\blidar_detect\\\\b/og_lidar_detect/g' -e 's/\\\\bpf_localization\\\\b/og_pf_localization/g' {} +)"
+    ]
+  }
+}
