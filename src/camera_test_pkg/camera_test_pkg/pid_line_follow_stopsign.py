@@ -65,6 +65,7 @@ class LineFollower(Node):
         self.stop_state = STOP_STATE_READY
         self.stop_start_time = None    # when we entered STOPPING
         self.stop_sign_active = False  # latest value from topic /stop_sign_stop
+        self.right_turn_count = 0 #number of right turns we have encountered thus far
 
     # ------------------ Stop Sign Callback ------------------
     def stop_sign_callback(self, msg: Bool):
@@ -175,14 +176,27 @@ class LineFollower(Node):
 
         # ---- Driving logic from other PID follower code, remains the same, except for P and D terms----
         if self.right_turn_detected:
+            
+           # self.right_turn_count += 1
+
             self.get_logger().info('TURN TURN TURN TURN TURN')
             twist.linear.x = DEFAULT_SPEED
             twist.angular.z = -300.0 + TURN_BIAS
-            if self.steps_right_turn < 25 and not self.fresh_path_flag:
+
+            # if self.right_turn_count == 0:
+                
+
+            # elif self.right_turn_count ==1:
+
+
+            # elif self.right_turn_count == 2:
+
+
+            if  not self.fresh_path_flag: #max amount of wait time on turn turn turn (only print 25 times max)
                 self.steps_right_turn += 1
-                if self.steps_right_turn > 15 and self.has_fresh_path():
+                if self.steps_right_turn > 15 and self.has_fresh_path(): #min amount of time 15 times
                     self.fresh_path_count += 1
-                    if self.fresh_path_count > 10:
+                    if self.fresh_path_count > 10:  #number of time steps it needs to see a fresh path before it quits turning
                         self.fresh_path_flag = True
             else:
                 self.right_turn_detected = False
