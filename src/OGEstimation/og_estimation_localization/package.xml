@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>estimation_localization</name>
+  <name>og_estimation_localization</name>
   <version>0.0.1</version>
   <description>Localization package for AMCL and slam_toolbox localization</description>
 

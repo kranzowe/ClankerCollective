@@ -2,7 +2,7 @@ from setuptools import setup
 from glob import glob
 import os
 
-package_name = 'estimation_localization'
+package_name = 'og_estimation_localization'
 
 setup(
     name=package_name,

@@ -13,7 +13,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    package_share_dir = get_package_share_directory('estimation_mapping')
+    package_share_dir = get_package_share_directory('og_estimation_mapping')
     slam_config = os.path.join(package_share_dir, 'config', 'mapper_params.yaml')
     rplidar_launch = os.path.join(
         get_package_share_directory('rplidar_ros'),
