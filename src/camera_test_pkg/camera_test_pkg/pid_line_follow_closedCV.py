@@ -14,12 +14,22 @@ CENTER = 0.7
 
 # Path-follow control
 PATH_TIMEOUT_SEC = 10
-PATH_ANGLE_KP = -155.0 # 
+PATH_ANGLE_KP = -155.0 #
 PATH_ANGLE_KD = -15.0
 MAX_LEFT_TURN = 500.0
 MAX_RIGHT_TURN = -500.0
 MIN_TURN = 30.0
 TURN_BIAS = 1480.0
+
+# Custom config per turn — executed in order each time a turn is detected.
+# steps: how many control loop ticks to stay in turn mode (10Hz, so 10 steps = 1s)
+# steer: steering offset added to TURN_BIAS (negative = right, positive = left)
+# speed: linear.x PWM during the turn
+TURN_CONFIGS = [
+    {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 1
+    {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 2
+    {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 3
+]
 
 class LineFollower(Node):
     def __init__(self):
@@ -48,7 +58,8 @@ class LineFollower(Node):
         self.right_turn_detected = False
         self.steps_right_turn = 0
         self.fresh_path_flag = False
-        self.fresh_path_count = 0 
+        self.fresh_path_count = 0
+        self.turn_index = 0  # which turn config to use next 
 
         # Debug logging throttle
         self._last_fresh_status_log = 0.0
@@ -79,7 +90,11 @@ class LineFollower(Node):
             
             if y_aligned:
                 if not self.right_turn_detected:
-                    self.get_logger().info('RIGHT TURN RIGHT TURN RIGHT TURN')
+                    cfg = TURN_CONFIGS[self.turn_index % len(TURN_CONFIGS)]
+                    self.get_logger().info(
+                        f'RIGHT TURN DETECTED (turn #{self.turn_index + 1}) | '
+                        f'steps={cfg["steps"]} steer={cfg["steer"]} speed={cfg["speed"]}'
+                    )
                     self.right_turn_detected = True
                     self.steps_right_turn = 0
                 thetas.append(np.pi / 2)  # bias it rightwards
@@ -164,16 +179,22 @@ class LineFollower(Node):
         twist = Twist()
         
         if self.right_turn_detected:
-            self.get_logger().info('TURN TURN TURN TURN TURN')
-            twist.linear.x = self.default_speed #* speed_scale
-            twist.angular.z =  -300.0 + TURN_BIAS                   #do until we see a line instead of hardcoded, also change turn bias
-            if self.steps_right_turn < 30 and not self.fresh_path_flag:
+            cfg = TURN_CONFIGS[self.turn_index % len(TURN_CONFIGS)]
+            self.get_logger().info(
+                f'TURNING (turn #{self.turn_index + 1}) | '
+                f'step={self.steps_right_turn}/{cfg["steps"]}'
+            )
+            twist.linear.x = cfg["speed"]
+            twist.angular.z = cfg["steer"] + TURN_BIAS
+            if self.steps_right_turn < cfg["steps"] and not self.fresh_path_flag:
                 self.steps_right_turn += 1
-                if self.steps_right_turn >15 and self.has_fresh_path():  #want to get into the turn before looking for fresh path
-                    self.fresh_path_count+=1   
+                halfway = cfg["steps"] // 2
+                if self.steps_right_turn > halfway and self.has_fresh_path():
+                    self.fresh_path_count += 1
                     if self.fresh_path_count > 10:
                         self.fresh_path_flag = True
             else:
+                self.turn_index += 1
                 self.right_turn_detected = False
                 self.steps_right_turn = 0
                 self.fresh_path_flag = False
