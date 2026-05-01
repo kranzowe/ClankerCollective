@@ -27,8 +27,8 @@ TURN_BIAS = 1480.0
 # speed: linear.x PWM during the turn
 TURN_CONFIGS = [
     {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 1
-    {"steps": 60, "steer": -350.0, "speed": DEFAULT_SPEED*0.996},  # turn 2
-    {"steps": 35, "steer": -350.0, "speed": DEFAULT_SPEED*0.996},  # turn 3
+    {"steps": 50, "steer": -350.0, "speed": DEFAULT_SPEED*0.996},  # turn 2
+    {"steps": 30, "steer": -350.0, "speed": DEFAULT_SPEED*0.996},  # turn 3
 ]
 
 class LineFollower(Node):
