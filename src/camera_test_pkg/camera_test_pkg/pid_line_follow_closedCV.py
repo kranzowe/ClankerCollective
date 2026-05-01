@@ -26,8 +26,8 @@ TURN_BIAS = 1480.0
 # steer: steering offset added to TURN_BIAS (negative = right, positive = left)
 # speed: linear.x PWM during the turn
 TURN_CONFIGS = [
-    {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 1
-    {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 2
+    {"steps": 50, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 1
+    {"steps": 50, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 2
     {"steps": 30, "steer": -300.0, "speed": DEFAULT_SPEED},  # turn 3
 ]
 
