@@ -99,53 +99,27 @@ ros2 run camera_test_pkg my_color_sub
 `ros2 run clanker_hardware wasd.py`
 
 
-# C++ image version:
+# with C++ image version:
 
-publish_image.py: simulation of picture to ros2 node
-```bash
-python3 publish_image.py
-```
-2.ros2 packages:
+1.ros2 packages:
 ```bash
 colcon build --packages-sekect camera_cpp_pkg
 source install/setup.bash
 ros2 run camera_cpp_pkg image_listener
 ```
-for pid_line_follow.py:
-Step 1：tune KP first
+
+2. Start line follower:
 ```bash
-PATH_ANGLE_KP = -170.0
-```
-not turn: -200 / turn too much: -120
-
-
-Step 2：tune kD
-```bash
-PATH_ANGLE_KD = -25.0
-```
-wobbling: -35 / too slow: -15
-
-
-Step 3：tune RIGHT_BIAS
-```bash
-RIGHT_BIAS = -180.0
-```
-not enough: -220 / good: -180 / overshoot: -140
-
-Step 4: when to stop turn right
-```bash
-if abs(angle_error) < 0.25:
+ros2 launch camera_test_pkg camera_tracking.launch.py
+ros2 launch robo_rover rover_launch.py
 ```
 
-too early: 0.15 / keep turning: 0.3
+At \Clankercollective\src\camera_test_pkg\camera_test_pkg\camera_test_pkg run:
+`python3 pid_line_follow_closedCV.py`
 
-Step 5：Tune speed
-```bash
-DEFAULT_SPEED = 1415.0
-```
+`python3 pid_line_follow_stopsign.py`
 
-Step 6: timeout
-```bash
-PATH_TIMEOUT_SEC = 2
-```
-sometimes stop: 3 / response late: 1
+
+3.simulation of picture to ros2 node
+
+`python3 publish_image.py`
