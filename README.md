@@ -108,18 +108,34 @@ source install/setup.bash
 ros2 run camera_cpp_pkg image_listener
 ```
 
-2. Start line follower:
 ```bash
 ros2 launch camera_test_pkg camera_tracking.launch.py
 ros2 launch robo_rover rover_launch.py
 ```
 
+2. Start line follower:
+
 At \Clankercollective\src\camera_test_pkg\camera_test_pkg\camera_test_pkg run:
+
 `python3 pid_line_follow_closedCV.py`
+
+To finetune the speed as a ros2 parameter:
+
+`ros2 param set /line_follower_node default_speed -1395.0`
+
+3. Start stopsign:
+
+
+`python3 my_color_sub_opencv_stopsign.py`
 
 `python3 pid_line_follow_stopsign.py`
 
+4. slidingcontrol:
+```bash
+python3 my_color_sub_closedCV.py
+python3 slidingcontrol_line_follow.py
+```
 
-3.simulation of picture to ros2 node
+some testing: simulation of picture to ros2 node
 
 `python3 publish_image.py`
